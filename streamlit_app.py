@@ -62,7 +62,7 @@ P50_MOYENNE = round((probability_MET["P50"] + probability_PVGIS["P50"]) / 2, 2)
 
 # Création des tableaux Pandas
 df_data = pd.DataFrame({
-    "Mois": mois,
+    "Mois": mois ,
     "E_Grid_MET (kWh)": E_Grid_MET,
     "E_Grid_PVGIS (kWh)": E_Grid_PVGIS,
     "Irradiation_MET (kWh/m²)": Irrad_MET,
