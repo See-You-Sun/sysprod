@@ -11,6 +11,11 @@ from reportlab.lib.units import inch
 import tempfile
 import os
 
+logo_uploaded = st.file_uploader("Logo SYS", type=["png", "jpg", "jpeg"])
+
+if logo_uploaded is not None:
+    logo_bytes = BytesIO(logo_uploaded.read())
+    create_pdf(..., logo_bytes, ...)
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
@@ -36,7 +41,7 @@ def extract_data(uploaded_file, page_tableau, colonne):
                     break
     return values
 
-def create_pdf(filename, logo_path, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
+def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
