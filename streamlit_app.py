@@ -34,7 +34,7 @@ def extract_data(uploaded_file, page_tableau, colonne):
                 try:
                     if colonne == "E_Grid":
                         value = int(numbers[-2].replace(",", ""))
-                    elif colonne == "Irradiation":
+                    elif colonne == "GlobHor":
                         value = float(numbers[-8].replace(",", ""))
                     else:
                         value = None
