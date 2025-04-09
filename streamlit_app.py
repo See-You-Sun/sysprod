@@ -11,6 +11,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
 import os
+import pdfplumber
+
 from io import BytesIO
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
@@ -24,25 +26,46 @@ mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
 def extract_data(uploaded_file, page_tableau, colonne):
-    reader = PyPDF2.PdfReader(uploaded_file)
-    page_text = reader.pages[page_tableau].extract_text()
     values = []
-    for month in mois:
-        for line in page_text.split("\n"):
-            if month in line:
-                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-                try:
-                    if colonne == "E_Grid":
-                        value = int(numbers[-2].replace(",", ""))
-                    elif colonne == "Irradiation":
-                        value = float(numbers[-8].replace(",", ""))
-                    else:
-                        value = None
-                    values.append(value)
-                    break
-                except (ValueError, IndexError):
-                    values.append(None)
-                    break
+    mois_trouves = []
+
+    with pdfplumber.open(uploaded_file) as pdf:
+        page = pdf.pages[page_tableau]
+        text = page.extract_text()
+
+        st.subheader("🔍 Texte brut extrait (pour vérification)")
+        st.text(text)
+
+        for month in mois:
+            found = False
+            for line in text.split("\n"):
+                if month in line:
+                    numbers = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
+                    st.write(f"{month}: {line} → {numbers}")  # Affiche pour debug
+
+                    try:
+                        if colonne == "E_Grid":
+                            # Essaye de prendre la plus grande valeur comme estimation E_Grid
+                            nums = [float(n) for n in numbers]
+                            value = max(nums) if nums else None
+                        elif colonne == "Irradiation":
+                            nums = [float(n) for n in numbers]
+                            value = min(nums) if nums else None  # souvent l’irradiation est plus faible
+                        else:
+                            value = None
+                        values.append(round(value, 2) if value is not None else None)
+                        found = True
+                        mois_trouves.append(month)
+                        break
+                    except Exception as e:
+                        st.warning(f"Erreur pour {month} : {e}")
+                        values.append(None)
+                        found = True
+                        break
+            if not found:
+                st.warning(f"⚠️ Mois non trouvé : {month}")
+                values.append(None)
+
     return values
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
