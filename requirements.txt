@@ -3,3 +3,5 @@ streamlit>=1.30.0
 pandas
 PyPDF2
 reportlab
+pdfplumber
+
