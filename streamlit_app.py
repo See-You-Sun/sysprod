@@ -4,6 +4,7 @@ import pandas as pd
 import re
 from datetime import datetime
 from reportlab.lib import colors
+from reportlab.platypus import Image
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
@@ -11,10 +12,6 @@ from reportlab.lib.units import inch
 import tempfile
 import os
 from io import BytesIO
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
 
@@ -27,38 +24,25 @@ mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
 def extract_data(uploaded_file, page_tableau, colonne):
+    reader = PyPDF2.PdfReader(uploaded_file)
+    page_text = reader.pages[page_tableau].extract_text()
     values = []
-    try:
-        reader = PyPDF2.PdfReader(uploaded_file)
-        page_text = reader.pages[page_tableau].extract_text()
-    except Exception as e:
-        logging.error(f"Error reading PDF: {e}")
-        return [None] * len(mois)
-
     for month in mois:
-        value = None
         for line in page_text.split("\n"):
             if month in line:
+                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
                 try:
-                    numbers = re.findall(r"[-+]?\d*\.?\d+", line)
                     if colonne == "E_Grid":
-                        # Filter numbers to find the one most likely to be E_Grid
-                        eligible_numbers = [int(num.replace(",", "")) for num in numbers if float(num.replace(",", ".")) > 0]
-                        if eligible_numbers:
-                            value = eligible_numbers[-1]  # Take the last positive number
-                        else:
-                            logging.warning(f"No valid E_Grid number found in line: {line}")
-                            value = None
-                    elif colonne == "GlobHor":
-                        value = float(numbers[-8].replace(",", "."))
-                    break  # Stop after finding the first match in the month
-                except (ValueError, IndexError) as e:
-                    logging.error(f"Error processing line: {line} - {e}")
-                    value = None
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    value = None
-        values.append(value)
+                        value = int(numbers[-2].replace(",", ""))
+                    elif colonne == "Irradiation":
+                        value = float(numbers[-8].replace(",", ""))
+                    else:
+                        value = None
+                    values.append(value)
+                    break
+                except (ValueError, IndexError):
+                    values.append(None)
+                    break
     return values
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
@@ -149,8 +133,8 @@ code_chantier = st.text_input("Code chantier")
 if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
     E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
     E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
-    Irrad_MET = extract_data(uploaded_met, page_tableau, "GlobHor")
-    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "GlobHor")
+    Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
+    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
 
     taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
 
@@ -194,4 +178,4 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         create_pdf(pdf_filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, datetime.now().strftime("%d/%m/%Y"))
         st.success("PDF généré avec succès.")
         with open(pdf_filename, "rb") as f:
-            st.download_button("Télécharger le rapport PDF", f, file_name=f"Productible_{code_chantier}.pdf")
+            st.download_button("📥 Télécharger le rapport PDF", f, file_name=f"Productible_{code_chantier}.pdf")
