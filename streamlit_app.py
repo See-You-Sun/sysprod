@@ -11,6 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
 import os
+import pdfplumber
 from io import BytesIO
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
@@ -23,27 +24,47 @@ else:
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
+import pdfplumber
+
 def extract_data(uploaded_file, page_tableau, colonne):
-    reader = PyPDF2.PdfReader(uploaded_file)
-    page_text = reader.pages[page_tableau].extract_text()
     values = []
-    for month in mois:
-        for line in page_text.split("\n"):
-            if month in line:
-                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-                try:
-                    if colonne == "E_Grid":
-                        value = int(numbers[-2].replace(",", ""))
-                    elif colonne == "Irradiation":
-                        value = float(numbers[-8].replace(",", ""))
-                    else:
-                        value = None
-                    values.append(value)
-                    break
-                except (ValueError, IndexError):
-                    values.append(None)
-                    break
+    mois_capturés = []
+
+    with pdfplumber.open(uploaded_file) as pdf:
+        page = pdf.pages[page_tableau]
+        text = page.extract_text()
+        st.subheader("📄 Aperçu texte brut (page sélectionnée)")
+        st.text(text)
+
+        lines = text.split('\n')
+        for month in mois:
+            for line in lines:
+                if month in line:
+                    st.write(f"🔍 {month} → {line}")  # Debug
+
+                    numbers = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
+                    try:
+                        if colonne == "E_Grid":
+                            # Le 2ème dernier nombre est l’énergie injectée (selon le format du PDF testé)
+                            value = float(numbers[-2])
+                        elif colonne == "Irradiation":
+                            # Le 4e nombre semble correspondre à "GlobInc" (irradiation sur plan)
+                            value = float(numbers[3])
+                        else:
+                            value = None
+                        values.append(round(value, 2) if value else None)
+                        mois_capturés.append(month)
+                        break
+                    except Exception as e:
+                        st.warning(f"❌ Erreur extraction {month} : {e}")
+                        values.append(None)
+                        break
+            else:
+                st.warning(f"⚠️ Mois non trouvé dans la page : {month}")
+                values.append(None)
+
     return values
+
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
