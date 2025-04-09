@@ -4,6 +4,7 @@ import pandas as pd
 import re
 from datetime import datetime
 from reportlab.lib import colors
+from reportlab.platypus import Image
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
@@ -14,8 +15,10 @@ from io import BytesIO
 
 logo_uploaded = st.file_uploader("Téléversez le logo SYS", type=["png", "jpg", "jpeg"])
 
-if logo_uploaded:
-    logo_bytes = BytesIO(logo_uploaded.read())  # lecture de l'image en mémoire
+if logo_uploaded is not None:
+    logo_bytes = BytesIO(logo_uploaded.read())
+else:
+    logo_bytes = None  # au cas où l'utilisateur ne charge pas de logo
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
