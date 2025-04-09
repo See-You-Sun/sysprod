@@ -22,6 +22,7 @@ else:
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+page_tableau = st.number_input("N° page 'Bilans et résultats principaux' (commence à 1)", min_value=1, step=1) - 1
 
 def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
@@ -118,7 +119,6 @@ uploaded_met = st.file_uploader("Importer le fichier PDF MET", type="pdf")
 uploaded_pvgis = st.file_uploader("Importer le fichier PDF PVGIS", type="pdf")
 logo = "LOGO-SYS-HORI-SIGNAT.PNG"  # ou intégrer en dur si souhaité
 
-page_tableau = st.number_input("N° page 'Bilans et résultats principaux' (commence à 1)", min_value=1, step=1) - 1
 
 p50_met = st.number_input("P50 MET (MWh)")
 p90_met = st.number_input("P90 MET (MWh)")
