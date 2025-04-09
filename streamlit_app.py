@@ -24,46 +24,41 @@ else:
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-import pdfplumber
 
-def extract_data(uploaded_file, page_tableau, colonne):
-    values = []
-    mois_capturés = []
+def convertir_colonne_verticale(valeurs_str):
+    """Convertit une liste de chaînes en float en remplaçant les virgules par des points."""
+    try:
+        return [round(float(v.replace(",", ".")), 2) for v in valeurs_str if v.strip()]
+    except Exception as e:
+        st.error(f"Erreur lors de la conversion : {e}")
+        return []
+
+def extraire_colonne_verticale(uploaded_file, page_numero):
+    """
+    Extrait une colonne verticale de valeurs numériques depuis un PDF à une page donnée.
+    On suppose que chaque ligne contient une seule valeur (type kWh ou irradiation).
+    """
+    valeurs_extraites = []
 
     with pdfplumber.open(uploaded_file) as pdf:
-        page = pdf.pages[page_tableau]
-        text = page.extract_text()
-        st.subheader("📄 Aperçu texte brut (page sélectionnée)")
-        st.text(text)
+        page = pdf.pages[page_numero]
+        texte = page.extract_text()
+        st.subheader("📄 Texte brut extrait (page sélectionnée)")
+        st.text(texte)
 
-        lines = text.split('\n')
-        for month in mois:
-            for line in lines:
-                if month in line:
-                    st.write(f"🔍 {month} → {line}")  # Debug
+        lignes = texte.split("\n")
+        for ligne in lignes:
+            if ligne.replace(",", "").replace(".", "").isdigit():
+                valeurs_extraites.append(ligne)
 
-                    numbers = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
-                    try:
-                        if colonne == "E_Grid":
-                            # Le 2ème dernier nombre est l’énergie injectée (selon le format du PDF testé)
-                            value = float(numbers[-2])
-                        elif colonne == "GlobHor":
-                            # Le 4e nombre semble correspondre à "GlobInc" (irradiation sur plan)
-                            value = float(numbers[3])
-                        else:
-                            value = None
-                        values.append(round(value, 2) if value else None)
-                        mois_capturés.append(month)
-                        break
-                    except Exception as e:
-                        st.warning(f"❌ Erreur extraction {month} : {e}")
-                        values.append(None)
-                        break
-            else:
-                st.warning(f"⚠️ Mois non trouvé dans la page : {month}")
-                values.append(None)
+    valeurs_converties = convertir_colonne_verticale(valeurs_extraites)
 
-    return values
+    if len(valeurs_converties) == 12:
+        st.success("✅ 12 valeurs détectées pour les 12 mois.")
+    else:
+        st.warning(f"⚠️ {len(valeurs_converties)} valeurs détectées. Vérifie le format.")
+
+    return valeurs_converties
 
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
