@@ -10,6 +10,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
 import os
+from io import BytesIO
 
 logo_uploaded = st.file_uploader("Logo SYS", type=["png", "jpg", "jpeg"])
 
