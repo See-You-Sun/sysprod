@@ -47,7 +47,7 @@ def extract_data(uploaded_file, page_tableau, colonne):
                         if colonne == "E_Grid":
                             # Le 2ème dernier nombre est l’énergie injectée (selon le format du PDF testé)
                             value = float(numbers[-2])
-                        elif colonne == "Irradiation":
+                        elif colonne == "GlobHor":
                             # Le 4e nombre semble correspondre à "GlobInc" (irradiation sur plan)
                             value = float(numbers[3])
                         else:
