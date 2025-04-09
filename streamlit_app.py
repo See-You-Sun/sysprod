@@ -11,7 +11,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
 import os
-import pdfplumber
 from io import BytesIO
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
@@ -24,42 +23,27 @@ else:
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-
-def convertir_colonne_verticale(valeurs_str):
-    """Convertit une liste de chaînes en float en remplaçant les virgules par des points."""
-    try:
-        return [round(float(v.replace(",", ".")), 2) for v in valeurs_str if v.strip()]
-    except Exception as e:
-        st.error(f"Erreur lors de la conversion : {e}")
-        return []
-
-def extraire_colonne_verticale(uploaded_file, page_numero):
-    """
-    Extrait une colonne verticale de valeurs numériques depuis un PDF à une page donnée.
-    On suppose que chaque ligne contient une seule valeur (type kWh ou irradiation).
-    """
-    valeurs_extraites = []
-
-    with pdfplumber.open(uploaded_file) as pdf:
-        page = pdf.pages[page_numero]
-        texte = page.extract_text()
-        st.subheader("📄 Texte brut extrait (page sélectionnée)")
-        st.text(texte)
-
-        lignes = texte.split("\n")
-        for ligne in lignes:
-            if ligne.replace(",", "").replace(".", "").isdigit():
-                valeurs_extraites.append(ligne)
-
-    valeurs_converties = convertir_colonne_verticale(valeurs_extraites)
-
-    if len(valeurs_converties) == 12:
-        st.success("✅ 12 valeurs détectées pour les 12 mois.")
-    else:
-        st.warning(f"⚠️ {len(valeurs_converties)} valeurs détectées. Vérifie le format.")
-
-    return valeurs_converties
-
+def extract_data(uploaded_file, page_tableau, colonne):
+    reader = PyPDF2.PdfReader(uploaded_file)
+    page_text = reader.pages[page_tableau].extract_text()
+    values = []
+    for month in mois:
+        for line in page_text.split("\n"):
+            if month in line:
+                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
+                try:
+                    if colonne == "E_Grid":
+                        value = int(numbers[-2].replace(",", ""))
+                    elif colonne == "Irradiation":
+                        value = float(numbers[-8].replace(",", ""))
+                    else:
+                        value = None
+                    values.append(value)
+                    break
+                except (ValueError, IndexError):
+                    values.append(None)
+                    break
+    return values
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
