@@ -51,10 +51,10 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     styles = getSampleStyleSheet()
 
     if logo_bytes :
-        elements.append(Image(logo_bytes , 2 * inch, 2 * inch))
-    elements.append(Spacer(1, 0))
+        elements.append(Image(logo_bytes , 2 * inch, 1 * inch))
+    elements.append(Spacer(1, 5))
     elements.append(Paragraph("<b>Rapport Productible MET / PVGIS</b>", styles["Title"]))
-    elements.append(Spacer(1, 7))
+    elements.append(Spacer(1, 5))
     elements.append(Paragraph(f"<b>Date de génération :</b> {date_rapport}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
