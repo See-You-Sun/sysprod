@@ -172,7 +172,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
         pdf_filename = tmpfile.name
-        create_pdf(pdf_filename, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, datetime.now().strftime("%d/%m/%Y"))
+        create_pdf(pdf_filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, datetime.now().strftime("%d/%m/%Y"))
         st.success("PDF généré avec succès.")
         with open(pdf_filename, "rb") as f:
             st.download_button("📥 Télécharger le rapport PDF", f, file_name=f"Productible_{code_chantier}.pdf")
