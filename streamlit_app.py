@@ -13,7 +13,7 @@ import tempfile
 import os
 from io import BytesIO
 
-logo_uploaded = st.file_uploader("Téléversez le logo SYS", type=["png", "jpg", "jpeg"])
+logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
 
 if logo_uploaded is not None:
     logo_bytes = BytesIO(logo_uploaded.read())
