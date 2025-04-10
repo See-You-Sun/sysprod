@@ -22,6 +22,17 @@ else:
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+def detect_source_type(uploaded_file):
+    reader = PyPDF2.PdfReader(uploaded_file)
+    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])  # On regarde les 3 premières pages
+
+    if "PVsyst" in full_text or "Meteonorm" in full_text:
+        return "MET"
+    elif "Photovoltaic Geographical Information System" in full_text or "PVGIS" in full_text:
+        return "PVGIS"
+    else:
+        return "UNKNOWN"
+
 def extract_data_auto(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
