@@ -36,7 +36,14 @@ def detect_source_type(uploaded_file):
 def extract_data_auto(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
-    source_type = detect_source_type(uploaded_file)
+    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
+    
+    if "PVsyst" in full_text or "Meteonorm" in full_text:
+        source_type = "MET"
+    elif "Photovoltaic Geographical Information System" in full_text or "PVGIS" in full_text:
+        source_type = "PVGIS"
+    else:
+        source_type = "UNKNOWN"
 
     values = []
     for month in mois:
@@ -48,11 +55,11 @@ def extract_data_auto(uploaded_file, page_tableau, colonne):
             try:
                 if colonne == "E_Grid":
                     if source_type == "MET":
-                        value = float(numbers[6]) * 1000  # MET = MWh → kWh
+                        value = float(numbers[6]) * 1000  # MWh → kWh
                     elif source_type == "PVGIS":
-                        value = float(numbers[-1])  # PVGIS = kWh déjà
+                        value = float(numbers[-1])  # kWh
                     else:
-                        value = float(numbers[-1])  # fallback
+                        value = float(numbers[-1])
                 elif colonne == "Irradiation":
                     value = float(numbers[0])  # GlobHor
                 else:
