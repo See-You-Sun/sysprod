@@ -22,12 +22,12 @@ else:
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
-
-def extract_data(uploaded_file, page_tableau, colonne):
+def extract_data_auto(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
-    values = []
+    source_type = detect_source_type(uploaded_file)
 
+    values = []
     for month in mois:
         pattern = rf"{month}\s+([^\n\r]+)"
         match = re.search(pattern, page_text)
@@ -36,11 +36,12 @@ def extract_data(uploaded_file, page_tableau, colonne):
             numbers = re.findall(r"[-+]?\d*\.?\d+", line)
             try:
                 if colonne == "E_Grid":
-                    # Essaye d'abord MWh en 7e position, sinon en dernière position (kWh)
-                    if len(numbers) >= 7:
-                        value = float(numbers[6]) * 1000  # MWh → kWh
+                    if source_type == "MET":
+                        value = float(numbers[6]) * 1000  # MET = MWh → kWh
+                    elif source_type == "PVGIS":
+                        value = float(numbers[-1])  # PVGIS = kWh déjà
                     else:
-                        value = float(numbers[-1])
+                        value = float(numbers[-1])  # fallback
                 elif colonne == "Irradiation":
                     value = float(numbers[0])  # GlobHor
                 else:
@@ -51,7 +52,6 @@ def extract_data(uploaded_file, page_tableau, colonne):
         else:
             values.append(None)
     return values
-
 
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
@@ -140,10 +140,11 @@ direction = st.selectbox("Direction", ["Est", "Ouest"])
 code_chantier = st.text_input("Code chantier")
 
 if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
-    E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
-    E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
-    Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
-    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
+    E_Grid_MET = extract_data_auto(uploaded_met, page_tableau, "E_Grid")
+    E_Grid_PVGIS = extract_data_auto(uploaded_pvgis, page_tableau, "E_Grid")
+    Irrad_MET = extract_data_auto(uploaded_met, page_tableau, "Irradiation")
+    Irrad_PVGIS = extract_data_auto(uploaded_pvgis, page_tableau, "Irradiation")
+
 
     taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
 
