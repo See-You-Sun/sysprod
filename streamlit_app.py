@@ -23,20 +23,24 @@ else:
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-def extract_data_fixed(uploaded_file, page_tableau, colonne):
+def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
     values = []
 
     for month in mois:
-        pattern = rf"{month}\s+(.*)"
+        pattern = rf"{month}\s+([^\n\r]+)"
         match = re.search(pattern, page_text)
         if match:
-            line = match.group(1)
-            numbers = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))  # Use dot for float
+            line = match.group(1).replace(",", ".")
+            numbers = re.findall(r"[-+]?\d*\.?\d+", line)
             try:
                 if colonne == "E_Grid":
-                    value = float(numbers[6]) * 1000  # convert MWh to kWh
+                    # Essaye d'abord MWh en 7e position, sinon en dernière position (kWh)
+                    if len(numbers) >= 7:
+                        value = float(numbers[6]) * 1000  # MWh → kWh
+                    else:
+                        value = float(numbers[-1])
                 elif colonne == "Irradiation":
                     value = float(numbers[0])  # GlobHor
                 else:
@@ -47,6 +51,7 @@ def extract_data_fixed(uploaded_file, page_tableau, colonne):
         else:
             values.append(None)
     return values
+
 
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
