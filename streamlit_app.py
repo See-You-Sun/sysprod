@@ -140,10 +140,10 @@ direction = st.selectbox("Direction", ["Est", "Ouest"])
 code_chantier = st.text_input("Code chantier")
 
 if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
-    E_Grid_MET = extract_data_fixed(uploaded_met, page_tableau, "E_Grid")
-    E_Grid_PVGIS = extract_data_fixed(uploaded_pvgis, page_tableau, "E_Grid")
-    Irrad_MET = extract_data_fixed(uploaded_met, page_tableau, "Irradiation")
-    Irrad_PVGIS = extract_data_fixed(uploaded_pvgis, page_tableau, "Irradiation")
+    E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
+    E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
+    Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
+    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
 
     taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
 
