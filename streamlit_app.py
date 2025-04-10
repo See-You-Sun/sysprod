@@ -22,30 +22,11 @@ else:
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
-def detect_source_type(uploaded_file):
-    reader = PyPDF2.PdfReader(uploaded_file)
-    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])  # On regarde les 3 premières pages
-
-    if "PVsyst" in full_text or "Meteonorm" in full_text:
-        return "MET"
-    elif "Photovoltaic Geographical Information System" in full_text or "PVGIS" in full_text:
-        return "PVGIS"
-    else:
-        return "UNKNOWN"
-
-def extract_data_auto(uploaded_file, page_tableau, colonne):
+def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
-    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
-    
-    if "PVsyst" in full_text or "Meteonorm" in full_text:
-        source_type = "MET"
-    elif "Photovoltaic Geographical Information System" in full_text or "PVGIS" in full_text:
-        source_type = "PVGIS"
-    else:
-        source_type = "UNKNOWN"
-
     values = []
+
     for month in mois:
         pattern = rf"{month}\s+([^\n\r]+)"
         match = re.search(pattern, page_text)
@@ -54,10 +35,9 @@ def extract_data_auto(uploaded_file, page_tableau, colonne):
             numbers = re.findall(r"[-+]?\d*\.?\d+", line)
             try:
                 if colonne == "E_Grid":
-                    if source_type == "MET":
+                    # Essaye d'abord MWh en 7e position, sinon en dernière position (kWh)
+                    if len(numbers) >= 7:
                         value = float(numbers[6]) * 1000  # MWh → kWh
-                    elif source_type == "PVGIS":
-                        value = float(numbers[-1])  # kWh
                     else:
                         value = float(numbers[-1])
                 elif colonne == "Irradiation":
@@ -158,10 +138,10 @@ direction = st.selectbox("Direction", ["Est", "Ouest"])
 code_chantier = st.text_input("Code chantier")
 
 if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
-    E_Grid_MET = extract_data_auto(uploaded_met, page_tableau, "E_Grid")
-    E_Grid_PVGIS = extract_data_auto(uploaded_pvgis, page_tableau, "E_Grid")
-    Irrad_MET = extract_data_auto(uploaded_met, page_tableau, "Irradiation")
-    Irrad_PVGIS = extract_data_auto(uploaded_pvgis, page_tableau, "Irradiation")
+    E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
+    E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
+    Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
+    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
 
 
     taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
