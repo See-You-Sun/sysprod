@@ -23,27 +23,31 @@ else:
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-def extract_data(uploaded_file, page_tableau, colonne):
+def extract_data_fixed(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
     values = []
+
     for month in mois:
-        for line in page_text.split("\n"):
-            if month in line:
-                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-                try:
-                    if colonne == "E_Grid":
-                        value = int(numbers[-2].replace(",", ""))
-                    elif colonne == "Irradiation":
-                        value = float(numbers[-8].replace(",", ""))
-                    else:
-                        value = None
-                    values.append(value)
-                    break
-                except (ValueError, IndexError):
-                    values.append(None)
-                    break
+        pattern = rf"{month}\s+(.*)"
+        match = re.search(pattern, page_text)
+        if match:
+            line = match.group(1)
+            numbers = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))  # Use dot for float
+            try:
+                if colonne == "E_Grid":
+                    value = float(numbers[6]) * 1000  # convert MWh to kWh
+                elif colonne == "Irradiation":
+                    value = float(numbers[0])  # GlobHor
+                else:
+                    value = None
+                values.append(round(value, 2))
+            except (IndexError, ValueError):
+                values.append(None)
+        else:
+            values.append(None)
     return values
+
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
