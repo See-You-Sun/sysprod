@@ -26,24 +26,45 @@ mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
 def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
+    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
+
+    if "PVsyst" in full_text or "Meteonorm" in full_text:
+        source_type = "MET"
+    elif "Photovoltaic Geographical Information System" in full_text or "PVGIS" in full_text:
+        source_type = "PVGIS"
+    else:
+        source_type = "UNKNOWN"
+
     values = []
     for month in mois:
-        for line in page_text.split("\n"):
-            if month in line:
-                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-                try:
-                    if colonne == "E_Grid":
-                        value = int(numbers[-2].replace(",", ""))
-                    elif colonne == "Irradiation":
-                        value = float(numbers[-8].replace(",", ""))
+        pattern = rf"{month}\s+([^\n\r]+)"
+        match = re.search(pattern, page_text)
+        if match:
+            line = match.group(1).replace(",", ".")
+            numbers = re.findall(r"[-+]?\d*\.?\d+", line)
+
+            try:
+                if colonne == "E_Grid":
+                    if source_type == "MET":
+                        if len(numbers) >= 7:
+                            value = float(numbers[6]) * 1000  # index 6 = E_Grid
+                        else:
+                            value = float(numbers[-2]) * 1000  # fallback si PR manquant
+                    elif source_type == "PVGIS":
+                        value = float(numbers[-1])  # PVGIS → déjà en kWh
                     else:
-                        value = None
-                    values.append(value)
-                    break
-                except (ValueError, IndexError):
-                    values.append(None)
-                    break
+                        value = float(numbers[-1])  # fallback
+                elif colonne == "Irradiation":
+                    value = float(numbers[0])  # GlobHor
+                else:
+                    value = None
+                values.append(round(value, 2))
+            except (IndexError, ValueError):
+                values.append(None)
+        else:
+            values.append(None)
     return values
+
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
