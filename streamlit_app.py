@@ -41,16 +41,14 @@ def extract_data(uploaded_file, page_tableau, colonne):
             numbers = re.findall(r"[-+]?\d*\.?\d+", line)
             try:
                 if colonne == "E_Grid":
-                    # Essai d'interprétation selon source + grandeur
                     if source_type == "MET":
                         value = float(numbers[6])
-                        # Si valeur < 50, on suppose que c’est en MWh (ex : 2.5), donc on convertit :
                         if value < 50:
                             value *= 1000
                     elif source_type == "PVGIS":
-                        value = float(numbers[-1])  # normalement déjà en kWh
+                        value = float(numbers[-1])
                     else:
-                        value = float(numbers[-1])  # fallback
+                        value = float(numbers[-1])
                 elif colonne == "Irradiation":
                     value = float(numbers[0])
                 else:
@@ -61,7 +59,6 @@ def extract_data(uploaded_file, page_tableau, colonne):
         else:
             values.append(None)
     return values
-
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, direction, date_rapport):
@@ -94,10 +91,16 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
         elements.append(table)
         elements.append(Spacer(1, 12))
 
+    # 1ère page : Données extraites
     add_table("Données extraites :", df_data, colors.grey)
     elements.append(PageBreak())
+    
+    # 2ème page : P90 mensuel et irradiation moyenne
     add_table("Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
     add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
+    elements.append(PageBreak())
+    
+    # 3ème page : Probabilité de production annuelle
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
     doc.build(elements)
@@ -132,7 +135,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
     P90_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(P90_MET_mensuel, P90_PVGIS_mensuel)]
     Irrad_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(Irrad_MET, Irrad_PVGIS)]
 
-    # Tableaux avec totaux
+    # Tables sans les totaux
     df_data = pd.DataFrame({
         "Mois": mois,
         "E_Grid_MET (kWh)": E_Grid_MET,
@@ -142,17 +145,13 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "P90_MET (kWh)": P90_MET_mensuel,
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel
     })
-    df_data.loc["Total"] = ["Total"] + [
-        sum(filter(None, df_data[col])) for col in df_data.columns[1:]
-    ]
-
+    
     df_p90_mensuel = pd.DataFrame({
         "Mois": mois,
         "P90_MET (kWh)": P90_MET_mensuel,
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
         "P90_MOYEN (kWh)": P90_MOYEN_mensuel
     })
-    
 
     df_irrad_moyenne = pd.DataFrame({
         "Mois": mois,
@@ -160,8 +159,6 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
         "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
     })
-    
-    
 
     df_probability = pd.DataFrame({
         "Source": ["MET", "PVGIS", "Moyenne"],
