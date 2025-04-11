@@ -97,7 +97,7 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     
     # 2ème page : P90 mensuel et irradiation moyenne
     add_table("Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
-                    elements.append(PageBreak())
+    elements.append(PageBreak())
     add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
     
     elements.append(Spacer(1, 6)
