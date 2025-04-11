@@ -22,35 +22,28 @@ else:
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+
 def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
     values = []
-
     for month in mois:
-        pattern = rf"{month}\s+([^\n\r]+)"
-        match = re.search(pattern, page_text)
-        if match:
-            line = match.group(1).replace(",", ".")
-            numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-            try:
-                if colonne == "E_Grid":
-                    # Essaye d'abord MWh en 7e position, sinon en dernière position (kWh)
-                    if len(numbers) >= 7:
-                        value = float(numbers[6]) * 1000  # MWh → kWh
+        for line in page_text.split("\n"):
+            if month in line:
+                numbers = re.findall(r"[-+]?\d*\.?\d+", line)
+                try:
+                    if colonne == "E_Grid":
+                        value = int(numbers[-2].replace(",", ""))
+                    elif colonne == "Irradiation":
+                        value = float(numbers[-8].replace(",", ""))
                     else:
-                        value = float(numbers[-1])
-                elif colonne == "Irradiation":
-                    value = float(numbers[0])  # GlobHor
-                else:
-                    value = None
-                values.append(round(value, 2))
-            except (IndexError, ValueError):
-                values.append(None)
-        else:
-            values.append(None)
+                        value = None
+                    values.append(value)
+                    break
+                except (ValueError, IndexError):
+                    values.append(None)
+                    break
     return values
-
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
@@ -142,7 +135,6 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
     E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
     Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
     Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
-
 
     taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
 
