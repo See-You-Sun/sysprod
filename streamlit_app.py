@@ -100,7 +100,7 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
         elements.append(PageBreak())
     add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
     
-       elements.append(Spacer(1, 6)
+       elements.append(Spacer(1, 6))
     # 3ème page : Probabilité de production annuelle
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
