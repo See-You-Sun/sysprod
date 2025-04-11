@@ -10,9 +10,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
 from io import BytesIO
-import matplotlib.pyplot as plt
-
-#st.set_option('deprecation.showPyplotGlobalUse', False)
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
 if logo_uploaded is not None:
@@ -61,21 +58,6 @@ def extract_data(uploaded_file, page_tableau, colonne):
             values.append(None)
     return values
 
-def generate_chart(df, y_cols, title):
-    fig, ax = plt.subplots()
-    for col in y_cols:
-        ax.plot(df["Mois"], df[col], marker='o', label=col)
-    ax.set_title(title)
-    ax.set_ylabel("kWh ou kWh/m²")
-    ax.set_xticklabels(df["Mois"], rotation=45)
-    ax.legend()
-    buf = BytesIO()
-    plt.tight_layout()
-    plt.savefig(buf, format="png")
-    plt.close(fig)
-    buf.seek(0)
-    return buf
-
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
@@ -94,7 +76,6 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
     elements.append(Spacer(1, 6))
 
-    # Tableaux
     def add_table(title, df, style_color):
         elements.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
         table_data = [df.columns.tolist()] + df.values.tolist()
@@ -114,24 +95,12 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
-    # Graphiques
-    elements.append(PageBreak())
-    elements.append(Paragraph("<b>Annexe : Graphiques</b>", styles["Heading2"]))
-
-    chart1 = generate_chart(df_data, ["E_Grid_MET (kWh)", "E_Grid_PVGIS (kWh)"], "Production mensuelle E_Grid")
-    elements.append(Image(chart1, width=7 * inch, height=3 * inch))
-    elements.append(Spacer(1, 12))
-
-    chart2 = generate_chart(df_irrad_moyenne, ["Irradiation_MET (kWh/m²)", "Irradiation_PVGIS (kWh/m²)"], "Irradiation moyenne mensuelle")
-    elements.append(Image(chart2, width=7 * inch, height=3 * inch))
-
     doc.build(elements)
 
 # Interface
 st.title("Générateur de Rapport Productible MET / PVGIS")
 uploaded_met = st.file_uploader("Importer le fichier PDF MET", type="pdf")
 uploaded_pvgis = st.file_uploader("Importer le fichier PDF PVGIS", type="pdf")
-logo = "LOGO-SYS-HORI-SIGNAT.PNG"
 
 page_tableau = st.number_input("N° page 'Bilans et résultats principaux' (commence à 1)", min_value=1, step=1) - 1
 
@@ -158,6 +127,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
     P90_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(P90_MET_mensuel, P90_PVGIS_mensuel)]
     Irrad_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(Irrad_MET, Irrad_PVGIS)]
 
+    # Tableaux avec totaux
     df_data = pd.DataFrame({
         "Mois": mois,
         "E_Grid_MET (kWh)": E_Grid_MET,
@@ -167,6 +137,9 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "P90_MET (kWh)": P90_MET_mensuel,
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel
     })
+    df_data.loc["Total"] = ["Total"] + [
+        sum(filter(None, df_data[col])) for col in df_data.columns[1:]
+    ]
 
     df_p90_mensuel = pd.DataFrame({
         "Mois": mois,
@@ -174,6 +147,9 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
         "P90_MOYEN (kWh)": P90_MOYEN_mensuel
     })
+    df_p90_mensuel.loc["Total"] = ["Total"] + [
+        sum(filter(None, df_p90_mensuel[col])) for col in df_p90_mensuel.columns[1:]
+    ]
 
     df_irrad_moyenne = pd.DataFrame({
         "Mois": mois,
@@ -181,6 +157,9 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
         "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
     })
+    df_irrad_moyenne.loc["Total"] = ["Total"] + [
+        sum(filter(None, df_irrad_moyenne[col])) for col in df_irrad_moyenne.columns[1:]
+    ]
 
     df_probability = pd.DataFrame({
         "Source": ["MET", "PVGIS", "Moyenne"],
