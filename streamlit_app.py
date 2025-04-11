@@ -152,7 +152,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
         "P90_MOYEN (kWh)": P90_MOYEN_mensuel
     })
-    ]
+    
 
     df_irrad_moyenne = pd.DataFrame({
         "Mois": mois,
@@ -161,7 +161,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
     })
     
-    ]
+    
 
     df_probability = pd.DataFrame({
         "Source": ["MET", "PVGIS", "Moyenne"],
