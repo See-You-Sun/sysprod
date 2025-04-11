@@ -152,8 +152,6 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
         "P90_MOYEN (kWh)": P90_MOYEN_mensuel
     })
-    df_p90_mensuel.loc["Total"] = ["Total"] + [
-        sum(filter(None, df_p90_mensuel[col])) for col in df_p90_mensuel.columns[1:]
     ]
 
     df_irrad_moyenne = pd.DataFrame({
@@ -162,8 +160,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
         "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
         "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
     })
-    df_irrad_moyenne.loc["Total"] = ["Total"] + [
-        sum(filter(None, df_irrad_moyenne[col])) for col in df_irrad_moyenne.columns[1:]
+    
     ]
 
     df_probability = pd.DataFrame({
