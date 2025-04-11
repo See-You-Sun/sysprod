@@ -4,5 +4,4 @@ pandas
 PyPDF2
 reportlab
 pdfplumber
-matplotlib.pyplot as plt
-
+matplotlib
