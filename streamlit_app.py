@@ -41,12 +41,16 @@ def extract_data(uploaded_file, page_tableau, colonne):
             numbers = re.findall(r"[-+]?\d*\.?\d+", line)
             try:
                 if colonne == "E_Grid":
+                    # Essai d'interprétation selon source + grandeur
                     if source_type == "MET":
-                        value = float(numbers[6]) * 1000
+                        value = float(numbers[6])
+                        # Si valeur < 50, on suppose que c’est en MWh (ex : 2.5), donc on convertit :
+                        if value < 50:
+                            value *= 1000
                     elif source_type == "PVGIS":
-                        value = float(numbers[-1])
+                        value = float(numbers[-1])  # normalement déjà en kWh
                     else:
-                        value = float(numbers[-1])
+                        value = float(numbers[-1])  # fallback
                 elif colonne == "Irradiation":
                     value = float(numbers[0])
                 else:
@@ -57,6 +61,7 @@ def extract_data(uploaded_file, page_tableau, colonne):
         else:
             values.append(None)
     return values
+
 
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, direction, date_rapport):
