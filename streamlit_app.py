@@ -89,7 +89,7 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 12))
+        elements.append(Spacer(1, 6))
 
     # 1ère page : Données extraites
     add_table("Données extraites :", df_data, colors.grey)
