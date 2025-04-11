@@ -4,21 +4,21 @@ import pandas as pd
 import re
 from datetime import datetime
 from reportlab.lib import colors
-from reportlab.platypus import Image
+from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 import tempfile
-import os
 from io import BytesIO
+import matplotlib.pyplot as plt
+
+st.set_option('deprecation.showPyplotGlobalUse', False)
 
 logo_uploaded = st.file_uploader("Téléversez le logo SPV", type=["png", "jpg", "jpeg"])
-
 if logo_uploaded is not None:
     logo_bytes = BytesIO(logo_uploaded.read())
 else:
-    logo_bytes = None  # au cas où l'utilisateur ne charge pas de logo
+    logo_bytes = None
 
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet",
         "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -42,20 +42,16 @@ def extract_data(uploaded_file, page_tableau, colonne):
         if match:
             line = match.group(1).replace(",", ".")
             numbers = re.findall(r"[-+]?\d*\.?\d+", line)
-
             try:
                 if colonne == "E_Grid":
                     if source_type == "MET":
-                        if len(numbers) >= 7:
-                            value = float(numbers[6]) * 1000  # index 6 = E_Grid
-                        else:
-                            value = float(numbers[-2]) * 1000  # fallback si PR manquant
+                        value = float(numbers[6]) * 1000
                     elif source_type == "PVGIS":
-                        value = float(numbers[-1])  # PVGIS → déjà en kWh
+                        value = float(numbers[-1])
                     else:
-                        value = float(numbers[-1])  # fallback
+                        value = float(numbers[-1])
                 elif colonne == "Irradiation":
-                    value = float(numbers[0])  # GlobHor
+                    value = float(numbers[0])
                 else:
                     value = None
                 values.append(round(value, 2))
@@ -65,14 +61,29 @@ def extract_data(uploaded_file, page_tableau, colonne):
             values.append(None)
     return values
 
+def generate_chart(df, y_cols, title):
+    fig, ax = plt.subplots()
+    for col in y_cols:
+        ax.plot(df["Mois"], df[col], marker='o', label=col)
+    ax.set_title(title)
+    ax.set_ylabel("kWh ou kWh/m²")
+    ax.set_xticklabels(df["Mois"], rotation=45)
+    ax.legend()
+    buf = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format="png")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
 
-def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, date_rapport):
+def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
+               inclinaison, orientation, code_chantier, direction, date_rapport):
     doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
 
-    if logo_bytes :
-        elements.append(Image(logo_bytes , 2 * inch, 1 * inch))
+    if logo_bytes:
+        elements.append(Image(logo_bytes, 2 * inch, 1 * inch))
     elements.append(Spacer(1, 5))
     elements.append(Paragraph("<b>Rapport Productible MET / PVGIS</b>", styles["Title"]))
     elements.append(Spacer(1, 5))
@@ -83,61 +94,44 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
     elements.append(Spacer(1, 6))
 
-    elements.append(Paragraph("<b>Données extraites :</b>", styles["Heading2"]))
-    data_table = [df_data.columns.tolist()] + df_data.values.tolist()
-    table1 = Table(data_table)
-    table1.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(table1)
+    # Tableaux
+    def add_table(title, df, style_color):
+        elements.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
+        table_data = [df.columns.tolist()] + df.values.tolist()
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), style_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 12))
 
+    add_table("Données extraites :", df_data, colors.grey)
     elements.append(PageBreak())
-    elements.append(Paragraph("<b>Production mensuelle estimée en P90 :</b>", styles["Heading2"]))
-    p90_table = [df_p90_mensuel.columns.tolist()] + df_p90_mensuel.values.tolist()
-    table_p90 = Table(p90_table)
-    table_p90.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(table_p90)
-    elements.append(Spacer(1, 180))
+    add_table("Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
+    add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
+    add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
-    elements.append(Paragraph("<b>Irradiation moyenne mensuelle :</b>", styles["Heading2"]))
-    irrad_table = [df_irrad_moyenne.columns.tolist()] + df_irrad_moyenne.values.tolist()
-    table_irrad = Table(irrad_table)
-    table_irrad.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(table_irrad)
-    elements.append(Spacer(1, 20))
+    # Graphiques
+    elements.append(PageBreak())
+    elements.append(Paragraph("<b>Annexe : Graphiques</b>", styles["Heading2"]))
 
-    elements.append(Paragraph("<b>Probabilité de production annuelle :</b>", styles["Heading2"]))
-    prob_table = [df_probability.columns.tolist()] + df_probability.values.tolist()
-    table2 = Table(prob_table)
-    table2.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(table2)
+    chart1 = generate_chart(df_data, ["E_Grid_MET (kWh)", "E_Grid_PVGIS (kWh)"], "Production mensuelle E_Grid")
+    elements.append(Image(chart1, width=7 * inch, height=3 * inch))
+    elements.append(Spacer(1, 12))
+
+    chart2 = generate_chart(df_irrad_moyenne, ["Irradiation_MET (kWh/m²)", "Irradiation_PVGIS (kWh/m²)"], "Irradiation moyenne mensuelle")
+    elements.append(Image(chart2, width=7 * inch, height=3 * inch))
 
     doc.build(elements)
 
-# --- Interface Streamlit ---
+# Interface
 st.title("Générateur de Rapport Productible MET / PVGIS")
-
 uploaded_met = st.file_uploader("Importer le fichier PDF MET", type="pdf")
 uploaded_pvgis = st.file_uploader("Importer le fichier PDF PVGIS", type="pdf")
-logo = "LOGO-SYS-HORI-SIGNAT.PNG"  # ou intégrer en dur si souhaité
+logo = "LOGO-SYS-HORI-SIGNAT.PNG"
 
 page_tableau = st.number_input("N° page 'Bilans et résultats principaux' (commence à 1)", min_value=1, step=1) - 1
 
@@ -157,7 +151,7 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
     Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
     Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
 
-    taux_diff = round(((p90_met + p90_pvgis)/2 - (p50_met + p50_pvgis)/2) / ((p50_met + p50_pvgis)/2), 4)
+    taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
 
     P90_MET_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_MET]
     P90_PVGIS_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_PVGIS]
@@ -190,13 +184,15 @@ if uploaded_met and uploaded_pvgis and st.button("Générer le PDF"):
 
     df_probability = pd.DataFrame({
         "Source": ["MET", "PVGIS", "Moyenne"],
-        "P50 (MWh)": [p50_met, p50_pvgis, round((p50_met + p50_pvgis) / 2, 2)],
-        "P90 (MWh)": [p90_met, p90_pvgis, round((p90_met + p90_pvgis) / 2, 2)]
+        "P50 (kWh)": [p50_met * 1000, p50_pvgis * 1000, round((p50_met + p50_pvgis) / 2 * 1000, 2)],
+        "P90 (kWh)": [p90_met * 1000, p90_pvgis * 1000, round((p90_met + p90_pvgis) / 2 * 1000, 2)]
     })
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
         pdf_filename = tmpfile.name
-        create_pdf(pdf_filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne, inclinaison, orientation, code_chantier, direction, datetime.now().strftime("%d/%m/%Y"))
+        create_pdf(pdf_filename, logo_bytes, df_data, df_probability, df_p90_mensuel,
+                   df_irrad_moyenne, inclinaison, orientation, code_chantier,
+                   direction, datetime.now().strftime("%d/%m/%Y"))
         st.success("PDF généré avec succès.")
         with open(pdf_filename, "rb") as f:
             st.download_button("📥 Télécharger le rapport PDF", f, file_name=f"Productible_{code_chantier}.pdf")
