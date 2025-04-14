@@ -1,24 +1,34 @@
-import streamlit as st
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Apr 07 11:53:48 2025
+@author: tchauvin
+"""
+
 import PyPDF2
 import pandas as pd
 import re
 import unicodedata
 from datetime import datetime
-from io import BytesIO
 from reportlab.lib import colors
 from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib.styles import getSampleStyleSheet
+from io import BytesIO
+import tkinter as tk
+from tkinter import filedialog
+import tempfile
 from reportlab.lib.units import inch
+from PIL import Image as PILImage
 
-# Mois français
+# Liste des mois français pour l’ordre
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-# Fonctions auxiliaires
+# ✅ Fonction pour retirer les accents et normaliser
 def strip_accents(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
+# ✅ Dictionnaire de correspondance mois FR/EN vers mois FR
 mois_dict = {
     "january": "Janvier", "janvier": "Janvier",
     "february": "Février", "fevrier": "Février",
@@ -34,11 +44,21 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
+# Sélection de fichier via interface
+def select_file(title, filetypes):
+    print("Sélectionner le Fichier MET puis PVGIS, et ensuite le logo.")
+    root = tk.Tk()
+    root.withdraw()
+    file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
+    return file_path
+
+# ✅ Fonction d'extraction robuste
 def extract_data(uploaded_file, page_tableau, colonne):
     reader = PyPDF2.PdfReader(uploaded_file)
     page_text = reader.pages[page_tableau].extract_text()
     lines = page_text.split("\n")
 
+    # Source
     full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
     if "PVsyst" in full_text and "Meteonorm" in full_text:
         source_type = "MET"
@@ -72,10 +92,10 @@ def extract_data(uploaded_file, page_tableau, colonne):
 
     return [data_dict[m] for m in mois]
 
+# Génération du PDF
 def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, direction, date_rapport):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    doc = SimpleDocTemplate(filename, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
 
@@ -113,97 +133,70 @@ def create_pdf(filename, logo_bytes, df_data, df_probability, df_p90_mensuel, df
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
     doc.build(elements)
-    buffer.seek(0)
-    return buffer
 
-# --- INTERFACE STREAMLIT ---
-st.set_page_config(page_title="Rapport Productible PV", layout="centered")
+# --- SCRIPT PRINCIPAL ---
 
-st.title("📊 Générateur de rapport PV MET / PVGIS")
+uploaded_met = select_file("Importer le fichier PDF MET", [("PDF files", "*.pdf")])
+uploaded_pvgis = select_file("Importer le fichier PDF PVGIS", [("PDF files", "*.pdf")])
+logo_path = select_file("Importer le logo (JPG/PNG)", [("Image files", "*.jpg;*.jpeg;*.png")])
+logo_bytes = None
+if logo_path:
+    with open(logo_path, "rb") as f:
+        logo_bytes = BytesIO(f.read())
 
-with st.sidebar:
-    st.header("Importer les fichiers")
-    uploaded_met = st.file_uploader("Fichier MET (PDF)", type="pdf")
-    uploaded_pvgis = st.file_uploader("Fichier PVGIS (PDF)", type="pdf")
-    logo_file = st.file_uploader("Logo (JPG / PNG)", type=["jpg", "jpeg", "png"])
+page_tableau = int(input("N° page 'Bilans et résultats principaux' (commence à 1) : ")) - 1
+p50_met = float(input("P50 MET (MWh) : "))
+p90_met = float(input("P90 MET (MWh) : "))
+p50_pvgis = float(input("P50 PVGIS (MWh) : "))
+p90_pvgis = float(input("P90 PVGIS (MWh) : "))
+inclinaison = int(input("Inclinaison (0-90°) : "))
+orientation = int(input("Orientation (0° = Nord) : "))
+direction = input("Direction (Est/Ouest) : ")
+code_chantier = input("Code chantier : ")
 
-    st.markdown("---")
-    page_tableau = st.number_input("N° page du tableau (1 = première)", min_value=1, value=2) - 1
+E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
+E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
+Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
+Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
 
-st.subheader("Données manuelles")
-col1, col2 = st.columns(2)
-with col1:
-    p50_met = st.number_input("P50 MET (MWh)", value=100.0)
-    p90_met = st.number_input("P90 MET (MWh)", value=90.0)
-    inclinaison = st.number_input("Inclinaison (0-90°)", 0, 90, 30)
-    code_chantier = st.text_input("Code chantier", "CH123")
-with col2:
-    p50_pvgis = st.number_input("P50 PVGIS (MWh)", value=105.0)
-    p90_pvgis = st.number_input("P90 PVGIS (MWh)", value=95.0)
-    orientation = st.number_input("Orientation (0 = Nord)", 0, 360, 180)
-    direction = st.selectbox("Direction", ["Est", "Sud", "Ouest", "Nord"])
+taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
+P90_MET_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_MET]
+P90_PVGIS_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_PVGIS]
+P90_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(P90_MET_mensuel, P90_PVGIS_mensuel)]
+Irrad_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(Irrad_MET, Irrad_PVGIS)]
 
-if uploaded_met and uploaded_pvgis:
-    E_Grid_MET = extract_data(uploaded_met, page_tableau, "E_Grid")
-    E_Grid_PVGIS = extract_data(uploaded_pvgis, page_tableau, "E_Grid")
-    Irrad_MET = extract_data(uploaded_met, page_tableau, "Irradiation")
-    Irrad_PVGIS = extract_data(uploaded_pvgis, page_tableau, "Irradiation")
+df_data = pd.DataFrame({
+    "Mois": mois,
+    "E_Grid_MET (kWh)": E_Grid_MET,
+    "E_Grid_PVGIS (kWh)": E_Grid_PVGIS,
+    "Irradiation_MET (kWh/m²)": Irrad_MET,
+    "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
+    "P90_MET (kWh)": P90_MET_mensuel,
+    "P90_PVGIS (kWh)": P90_PVGIS_mensuel
+})
 
-    taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
-    P90_MET_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_MET]
-    P90_PVGIS_mensuel = [round(val * (1 + taux_diff), 2) if val is not None else None for val in E_Grid_PVGIS]
-    P90_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(P90_MET_mensuel, P90_PVGIS_mensuel)]
-    Irrad_MOYEN_mensuel = [round((met + pvgis) / 2, 2) if met and pvgis else None for met, pvgis in zip(Irrad_MET, Irrad_PVGIS)]
+df_p90_mensuel = pd.DataFrame({
+    "Mois": mois,
+    "P90_MET (kWh)": P90_MET_mensuel,
+    "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
+    "P90_MOYEN (kWh)": P90_MOYEN_mensuel
+})
 
-    df_data = pd.DataFrame({
-        "Mois": mois,
-        "E_Grid_MET (kWh)": E_Grid_MET,
-        "E_Grid_PVGIS (kWh)": E_Grid_PVGIS,
-        "Irradiation_MET (kWh/m²)": Irrad_MET,
-        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
-        "P90_MET (kWh)": P90_MET_mensuel,
-        "P90_PVGIS (kWh)": P90_PVGIS_mensuel
-    })
+df_irrad_moyenne = pd.DataFrame({
+    "Mois": mois,
+    "Irradiation_MET (kWh/m²)": Irrad_MET,
+    "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
+    "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
+})
 
-    df_p90_mensuel = pd.DataFrame({
-        "Mois": mois,
-        "P90_MET (kWh)": P90_MET_mensuel,
-        "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
-        "P90_MOYEN (kWh)": P90_MOYEN_mensuel
-    })
+df_probability = pd.DataFrame({
+    "Source": ["MET", "PVGIS", "Moyenne"],
+    "P50 (kWh)": [p50_met * 1000, p50_pvgis * 1000, round((p50_met + p50_pvgis) / 2 * 1000, 2)],
+    "P90 (kWh)": [p90_met * 1000, p90_pvgis * 1000, round((p90_met + p90_pvgis) / 2 * 1000, 2)]
+})
 
-    df_irrad_moyenne = pd.DataFrame({
-        "Mois": mois,
-        "Irradiation_MET (kWh/m²)": Irrad_MET,
-        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
-        "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
-    })
-
-    df_probability = pd.DataFrame({
-        "Source": ["MET", "PVGIS", "Moyenne"],
-        "P50 (kWh)": [p50_met * 1000, p50_pvgis * 1000, round((p50_met + p50_pvgis) / 2 * 1000, 2)],
-        "P90 (kWh)": [p90_met * 1000, p90_pvgis * 1000, round((p90_met + p90_pvgis) / 2 * 1000, 2)]
-    })
-
-    st.subheader("Aperçu des données")
-    st.dataframe(df_data)
-    st.dataframe(df_p90_mensuel)
-    st.dataframe(df_irrad_moyenne)
-    st.dataframe(df_probability)
-
-    if st.button("📄 Générer le PDF"):
-        logo_bytes = BytesIO(logo_file.read()) if logo_file else None
-        pdf_file = create_pdf(
-            filename="dummy.pdf",
-            logo_bytes=logo_bytes,
-            df_data=df_data,
-            df_probability=df_probability,
-            df_p90_mensuel=df_p90_mensuel,
-            df_irrad_moyenne=df_irrad_moyenne,
-            inclinaison=inclinaison,
-            orientation=orientation,
-            code_chantier=code_chantier,
-            direction=direction,
-            date_rapport=datetime.now().strftime("%d/%m/%Y")
-        )
-        st.download_button("📥 Télécharger le rapport PDF", pdf_file, file_name=f"Productible_{code_chantier}.pdf")
+pdf_filename = f"Productible_{code_chantier}.pdf"
+create_pdf(pdf_filename, logo_bytes, df_data, df_probability, df_p90_mensuel,
+           df_irrad_moyenne, inclinaison, orientation, code_chantier,
+           direction, datetime.now().strftime("%d/%m/%Y"))
+print(f"✅ PDF généré avec succès : {pdf_filename}")
