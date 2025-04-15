@@ -179,7 +179,7 @@ if met_file and pvgis_file:
     })
 
     st.success("✅ Données extraites avec succès")
-              st.dataframe(df_data)
+    st.dataframe(df_data)
 
     if st.button("📄 Générer le rapport PDF"):
         try:
