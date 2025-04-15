@@ -120,6 +120,9 @@ with st.sidebar:
     st.header("📂 Données sources")
     met_file = st.file_uploader("Fichier MET", type="pdf")
     pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
+    TRS_file = st.file_uploader("Fichier TRS", type="pdf")
+    CABLAGE_file = st.file_uploader("Fichier câblage", type="pdf")
+
     logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
     st.markdown("---")
     st.header("🧮 Paramètres d'entrée")
@@ -176,14 +179,34 @@ if met_file and pvgis_file:
     })
 
     st.success("✅ Données extraites avec succès")
-    st.dataframe(df_data)
+          st.dataframe(df_data)
 
-    # Génération PDF
     if st.button("📄 Générer le rapport PDF"):
-        buf = BytesIO()
+        main_pdf_buf = BytesIO()
         logo_bytes = BytesIO(logo_file.read()) if logo_file else None
-        create_pdf(buf, logo_bytes, df_data, df_prob, df_p90, df_irrad,
+
+        # 1. Création du PDF principal
+        create_pdf(main_pdf_buf, logo_bytes, df_data, df_prob, df_p90, df_irrad,
                    inclinaison, orientation, code_chantier, direction,
                    datetime.now().strftime("%d/%m/%Y"))
-        st.download_button("⬇️ Télécharger le PDF", data=buf.getvalue(),
-                           file_name=f"Productible_{code_chantier}.pdf", mime="application/pdf")
+        main_pdf_buf.seek(0)
+
+        # 2. Fusion avec les fichiers TRS et Câblage
+        merger = PyPDF2.PdfMerger()
+        merger.append(main_pdf_buf)
+
+        if TRS_file:
+            merger.append(TRS_file)
+        if CABLAGE_file:
+            merger.append(CABLAGE_file)
+
+        final_buf = BytesIO()
+        merger.write(final_buf)
+        merger.close()
+        final_buf.seek(0)
+
+        # 3. Téléchargement du PDF fusionné
+        st.download_button("⬇️ Télécharger le PDF fusionné",
+                           data=final_buf.getvalue(),
+                           file_name=f"Productible_{code_chantier}.pdf",
+                           mime="application/pdf")
