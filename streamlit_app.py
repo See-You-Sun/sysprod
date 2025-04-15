@@ -179,34 +179,56 @@ if met_file and pvgis_file:
     })
 
     st.success("✅ Données extraites avec succès")
-          st.dataframe(df_data)
+              st.dataframe(df_data)
 
     if st.button("📄 Générer le rapport PDF"):
-        main_pdf_buf = BytesIO()
-        logo_bytes = BytesIO(logo_file.read()) if logo_file else None
+        try:
+            # 1. Génération du rapport principal dans un buffer
+            main_pdf_buf = BytesIO()
+            logo_bytes = BytesIO(logo_file.read()) if logo_file else None
 
-        # 1. Création du PDF principal
-        create_pdf(main_pdf_buf, logo_bytes, df_data, df_prob, df_p90, df_irrad,
-                   inclinaison, orientation, code_chantier, direction,
-                   datetime.now().strftime("%d/%m/%Y"))
-        main_pdf_buf.seek(0)
+            create_pdf(
+                main_pdf_buf,
+                logo_bytes,
+                df_data,
+                df_prob,
+                df_p90,
+                df_irrad,
+                inclinaison,
+                orientation,
+                code_chantier,
+                direction,
+                datetime.now().strftime("%d/%m/%Y")
+            )
+            main_pdf_buf.seek(0)
 
-        # 2. Fusion avec les fichiers TRS et Câblage
-        merger = PyPDF2.PdfMerger()
-        merger.append(main_pdf_buf)
+            # 2. Création du fichier final fusionné
+            merger = PyPDF2.PdfMerger()
+            merger.append(main_pdf_buf)
 
-        if TRS_file:
-            merger.append(TRS_file)
-        if CABLAGE_file:
-            merger.append(CABLAGE_file)
+            if TRS_file:
+                merger.append(TRS_file)
+            else:
+                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans annexe TRS.")
 
-        final_buf = BytesIO()
-        merger.write(final_buf)
-        merger.close()
-        final_buf.seek(0)
+            if CABLAGE_file:
+                merger.append(CABLAGE_file)
+            else:
+                st.warning("⚠️ Fichier câblage non fourni – rapport généré sans annexe câblage.")
 
-        # 3. Téléchargement du PDF fusionné
-        st.download_button("⬇️ Télécharger le PDF fusionné",
-                           data=final_buf.getvalue(),
-                           file_name=f"Productible_{code_chantier}.pdf",
-                           mime="application/pdf")
+            final_pdf_buf = BytesIO()
+            merger.write(final_pdf_buf)
+            merger.close()
+            final_pdf_buf.seek(0)
+
+            # 3. Téléchargement du fichier final
+            st.success("✅ Rapport généré avec succès.")
+            st.download_button(
+                "⬇️ Télécharger le PDF complet",
+                data=final_pdf_buf.getvalue(),
+                file_name=f"Productible_{code_chantier}.pdf",
+                mime="application/pdf"
+            )
+
+        except Exception as e:
+            st.error(f"❌ Une erreur est survenue lors de la génération du PDF : {e}")
