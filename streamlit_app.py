@@ -119,9 +119,8 @@ st.set_page_config(page_title="Rapport Productible", layout="wide")
 st.title("📊 Rapport Productible MET / PVGIS")
 
 with st.sidebar:
-
     st.header("🧮 Paramètres d'entrée")
-    page_tableau = st.number_input("Page contenant les bilans (commence à 1)", min_value=1, step=1, value=6) - 1
+    page_tableau = st.number_input("Page contenant les bilans prod/irrad (commence à 1)", min_value=1, step=1, value=6) - 1
     p50_met = st.number_input("P50 MET (MWh)", step=1.0)
     p90_met = st.number_input("P90 MET (MWh)", step=1.0)
     p50_pvgis = st.number_input("P50 PVGIS (MWh)", step=1.0)
