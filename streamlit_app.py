@@ -35,13 +35,13 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
-def extract_data(pdf_file, page_num, colonne):
+# Extraction de données PDF
+def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     reader = PyPDF2.PdfReader(pdf_file)
     text = reader.pages[page_num].extract_text()
     full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
     lines = text.split("\n")
 
-    # Détection de la source
     if "PVsyst" in full_text and "Meteonorm" in full_text:
         source_type = "MET"
     elif "PVGIS" in full_text:
@@ -50,29 +50,6 @@ def extract_data(pdf_file, page_num, colonne):
         source_type = "UNKNOWN"
 
     data_dict = {m: None for m in mois}
-
-    # Initialisation
-    unit_egrid = "kWh"
-    col_index = None
-
-    # Étape 1 : détection de la colonne et de l’unité
-    for i in range(len(lines) - 1):
-        if "E_Grid" in lines[i]:
-            headers = re.split(r"\s{2,}", lines[i].strip())
-            if "E_Grid" in headers:
-                col_index = headers.index("E_Grid")
-                # Ligne suivante = unités
-                next_line = lines[i + 1].strip()
-                units = re.split(r"\s{2,}", next_line)
-                if col_index < len(units):
-                    unit = units[col_index].lower()
-                    if "mwh" in unit:
-                        unit_egrid = "MWh"
-                    elif "kwh" in unit:
-                        unit_egrid = "kWh"
-            break  # On arrête après avoir trouvé la colonne
-
-    # Étape 2 : extraction des données mensuelles
     for line in lines:
         words = line.strip().split()
         if not words:
@@ -82,19 +59,18 @@ def extract_data(pdf_file, page_num, colonne):
             mois_fr = mois_dict[mois_key]
             try:
                 parts = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
-                value = None
-                if colonne == "E_Grid":
+               if colonne == "E_Grid":
                     value = float(parts[-2])
-                    if unit_egrid == "MWh":
-                        value *= 1000  # conversion en kWh
+                        if unite == "MWh":
+                                value *= 1000  # convertir en kWh
                 elif colonne == "Irradiation":
                     value = float(parts[0])
-                data_dict[mois_fr] = round(value, 2) if value is not None else None
-            except Exception as e:
-                print(f"Erreur pour le mois {mois_fr}: {e}")
-
+                else:
+                    value = None
+                data_dict[mois_fr] = round(value, 2)
+            except Exception:
+                pass
     return [data_dict[m] for m in mois]
-
 
 # Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
@@ -142,6 +118,7 @@ st.title("📊 Rapport Productible MET / PVGIS")
 
 with st.sidebar:
     st.header("📂 Données sources")
+    unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
     met_file = st.file_uploader("Fichier MET", type="pdf")
     pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
     TRS_file = st.file_uploader("Fichier TRS", type="pdf")
@@ -161,8 +138,9 @@ with st.sidebar:
     code_chantier = st.text_input("Code chantier")
 
 if met_file and pvgis_file:
-    E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid")
-    E_Grid_PVGIS = extract_data(pvgis_file, page_tableau, "E_Grid")
+    E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid", unite_choisie)
+    E_Grid_PVGIS = extract_data(pvgis_file, page_tableau, "E_Grid", unite_choisie)
+
     Irrad_MET = extract_data(met_file, page_tableau, "Irradiation")
     Irrad_PVGIS = extract_data(pvgis_file, page_tableau, "Irradiation")
 
