@@ -61,7 +61,9 @@ def extract_data(pdf_file, page_num, colonne):
                 parts = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
                 if colonne == "E_Grid":
                     value = float(parts[-2])
-                    if source_type == "MET" and source_type == "PVGIS" and value < 50:
+                    if source_type == "MET" and value < 50:
+                        value *= 1000
+                    if source_type == "PVGIS" and value < 50:
                         value *= 1000
                 elif colonne == "Irradiation":
                     value = float(parts[0])
