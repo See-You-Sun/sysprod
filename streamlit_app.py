@@ -119,15 +119,7 @@ st.set_page_config(page_title="Rapport Productible", layout="wide")
 st.title("📊 Rapport Productible MET / PVGIS")
 
 with st.sidebar:
-    st.header("📂 Données sources")
-    unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
-    met_file = st.file_uploader("Fichier MET", type="pdf")
-    pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
-    TRS_file = st.file_uploader("Fichier TRS", type="pdf")
-    CABLAGE_file = st.file_uploader("Fichier câblage", type="pdf")
 
-    logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
-    st.markdown("---")
     st.header("🧮 Paramètres d'entrée")
     page_tableau = st.number_input("Page contenant les bilans (commence à 1)", min_value=1, step=1, value=6) - 1
     p50_met = st.number_input("P50 MET (MWh)", step=1.0)
@@ -137,6 +129,19 @@ with st.sidebar:
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
     direction = st.radio("Direction", ["Est", "Ouest", "Sud", "Nord"])
+        
+    st.markdown("---")
+        
+    st.header("📂 Données sources")
+    unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
+    met_file = st.file_uploader("Fichier MET", type="pdf")
+    pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
+    TRS_file = st.file_uploader("Fichier TRS", type="pdf")
+    CABLAGE_file = st.file_uploader("Fichier câblage", type="pdf")
+
+    logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
+
+
     code_chantier = st.text_input("Code chantier")
 
 if met_file and pvgis_file:
