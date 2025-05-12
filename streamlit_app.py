@@ -50,28 +50,29 @@ def extract_data(pdf_file, page_num, colonne):
         source_type = "UNKNOWN"
 
     data_dict = {m: None for m in mois}
-    unit_egrid = "kWh"  # Valeur par défaut
 
-    # ➤ Étape 1 : repérage index de la colonne et de l'unité
+    # Initialisation
+    unit_egrid = "kWh"
     col_index = None
-    for i, line in enumerate(lines[:-1]):  # on évite l'IndexError
-        if "E_Grid" in line:
-            headers = re.split(r"\s{2,}", line.strip())  # split sur double espace ou plus
-            try:
+
+    # Étape 1 : détection de la colonne et de l’unité
+    for i in range(len(lines) - 1):
+        if "E_Grid" in lines[i]:
+            headers = re.split(r"\s{2,}", lines[i].strip())
+            if "E_Grid" in headers:
                 col_index = headers.index("E_Grid")
-                unit_line = lines[i + 1].strip()
-                units = re.split(r"\s{2,}", unit_line)
-                if len(units) > col_index:
+                # Ligne suivante = unités
+                next_line = lines[i + 1].strip()
+                units = re.split(r"\s{2,}", next_line)
+                if col_index < len(units):
                     unit = units[col_index].lower()
                     if "mwh" in unit:
                         unit_egrid = "MWh"
                     elif "kwh" in unit:
                         unit_egrid = "kWh"
-            except Exception as e:
-                print("Erreur dans la détection d’unité :", e)
-            break
+            break  # On arrête après avoir trouvé la colonne
 
-    # ➤ Étape 2 : extraction des données
+    # Étape 2 : extraction des données mensuelles
     for line in lines:
         words = line.strip().split()
         if not words:
@@ -89,8 +90,8 @@ def extract_data(pdf_file, page_num, colonne):
                 elif colonne == "Irradiation":
                     value = float(parts[0])
                 data_dict[mois_fr] = round(value, 2) if value is not None else None
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Erreur pour le mois {mois_fr}: {e}")
 
     return [data_dict[m] for m in mois]
 
