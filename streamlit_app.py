@@ -35,13 +35,13 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
-# Extraction de données PDF
 def extract_data(pdf_file, page_num, colonne):
     reader = PyPDF2.PdfReader(pdf_file)
     text = reader.pages[page_num].extract_text()
     full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
     lines = text.split("\n")
 
+    # Détection de la source
     if "PVsyst" in full_text and "Meteonorm" in full_text:
         source_type = "MET"
     elif "PVGIS" in full_text:
@@ -49,7 +49,28 @@ def extract_data(pdf_file, page_num, colonne):
     else:
         source_type = "UNKNOWN"
 
+    # Initialisation
     data_dict = {m: None for m in mois}
+    unit_egrid = "kWh"  # valeur par défaut
+
+    # ➤ Étape 1 : Identifier l’unité de la colonne demandée
+    for i, line in enumerate(lines[:6]):
+        if "E_Grid" in line:
+            words = line.strip().split()
+            try:
+                idx = words.index("E_Grid")
+                next_line = lines[i + 1].strip().split()
+                if len(next_line) > idx:
+                    unit_candidate = next_line[idx].lower()
+                    if "mwh" in unit_candidate:
+                        unit_egrid = "MWh"
+                    elif "kwh" in unit_candidate:
+                        unit_egrid = "kWh"
+            except Exception:
+                pass
+            break
+
+    # ➤ Étape 2 : Extraction ligne par ligne
     for line in lines:
         words = line.strip().split()
         if not words:
@@ -59,19 +80,17 @@ def extract_data(pdf_file, page_num, colonne):
             mois_fr = mois_dict[mois_key]
             try:
                 parts = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
+                value = None
                 if colonne == "E_Grid":
                     value = float(parts[-2])
-                    if source_type == "MET" and value < 50:
-                        value *= 1000
-                    if source_type == "PVGIS" and value < 50:
+                    if unit_egrid == "MWh":
                         value *= 1000
                 elif colonne == "Irradiation":
                     value = float(parts[0])
-                else:
-                    value = None
-                data_dict[mois_fr] = round(value, 2)
+                data_dict[mois_fr] = round(value, 2) if value is not None else None
             except Exception:
                 pass
+
     return [data_dict[m] for m in mois]
 
 # Génération du PDF
