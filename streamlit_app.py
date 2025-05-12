@@ -49,28 +49,29 @@ def extract_data(pdf_file, page_num, colonne):
     else:
         source_type = "UNKNOWN"
 
-    # Initialisation
     data_dict = {m: None for m in mois}
-    unit_egrid = "kWh"  # valeur par défaut
+    unit_egrid = "kWh"  # Valeur par défaut
 
-    # ➤ Étape 1 : Identifier l’unité de la colonne demandée
-    for i, line in enumerate(lines[:6]):
+    # ➤ Étape 1 : repérage index de la colonne et de l'unité
+    col_index = None
+    for i, line in enumerate(lines[:-1]):  # on évite l'IndexError
         if "E_Grid" in line:
-            words = line.strip().split()
+            headers = re.split(r"\s{2,}", line.strip())  # split sur double espace ou plus
             try:
-                idx = words.index("E_Grid")
-                next_line = lines[i + 1].strip().split()
-                if len(next_line) > idx:
-                    unit_candidate = next_line[idx].lower()
-                    if "mwh" in unit_candidate:
+                col_index = headers.index("E_Grid")
+                unit_line = lines[i + 1].strip()
+                units = re.split(r"\s{2,}", unit_line)
+                if len(units) > col_index:
+                    unit = units[col_index].lower()
+                    if "mwh" in unit:
                         unit_egrid = "MWh"
-                    elif "kwh" in unit_candidate:
+                    elif "kwh" in unit:
                         unit_egrid = "kWh"
-            except Exception:
-                pass
+            except Exception as e:
+                print("Erreur dans la détection d’unité :", e)
             break
 
-    # ➤ Étape 2 : Extraction ligne par ligne
+    # ➤ Étape 2 : extraction des données
     for line in lines:
         words = line.strip().split()
         if not words:
@@ -84,7 +85,7 @@ def extract_data(pdf_file, page_num, colonne):
                 if colonne == "E_Grid":
                     value = float(parts[-2])
                     if unit_egrid == "MWh":
-                        value *= 1000
+                        value *= 1000  # conversion en kWh
                 elif colonne == "Irradiation":
                     value = float(parts[0])
                 data_dict[mois_fr] = round(value, 2) if value is not None else None
@@ -92,6 +93,7 @@ def extract_data(pdf_file, page_num, colonne):
                 pass
 
     return [data_dict[m] for m in mois]
+
 
 # Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
