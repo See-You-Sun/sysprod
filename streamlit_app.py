@@ -60,7 +60,7 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
             try:
                 parts = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
                if colonne == "E_Grid":
-                    value = float(parts[-2])
+                        value = float(parts[-2])
                         if unite == "MWh":
                                 value *= 1000  # convertir en kWh
                 elif colonne == "Irradiation":
