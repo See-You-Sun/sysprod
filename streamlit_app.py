@@ -10,6 +10,9 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+import fitz  # PyMuPDF
+import tkinter as tk
+from tkinter import filedialog
 
 # Liste des mois
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -73,10 +76,53 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
 
     return [data_dict[m] for m in mois]
 
+# Fonction pour extraire la production annuelle à partir d'un fichier PDF (TRS ou similaire)
+def extraire_production_annuelle_auto(pdf_path):
+    doc = fitz.open(pdf_path)
+    mots_cles = ["Probabilité de production annuelle", "Annual production probability"]
+    page_index = None
 
-# Génération du PDF
+    # Recherche de la page contenant les données de production annuelle
+    for i, page in enumerate(doc):
+        texte = page.get_text()
+        if any(mot in texte for mot in mots_cles):
+            page_index = i  # Trouver l'index de la page contenant les informations
+            break
+
+    if page_index is None:
+        print("❌ Aucune page avec 'Probabilité de production annuelle' trouvée.")
+        return {}
+
+    page = doc[page_index]
+    lignes = page.get_text().splitlines()
+
+    cles_fr = ["Variabilité", "P50", "P90", "P75"]
+    cles_en = ["Variability", "P50", "P90", "P75"]
+
+    # Détection des clés dans le texte
+    if any("Probabilité de production annuelle" in l for l in lignes):
+        cles = cles_fr
+    elif any("Annual production probability" in l for l in lignes):
+        cles = cles_en
+    else:
+        print("❌ Clés non détectées dans les lignes.")
+        return {}
+
+    resultats = {}
+    try:
+        start_index = next(i for i, ligne in enumerate(lignes) if ligne.strip() == cles[0])
+        valeurs_index = start_index + len(cles)
+        for i, cle in enumerate(cles):
+            valeur = lignes[valeurs_index + i].strip()
+            resultats[cle] = valeur + " MWh"
+    except Exception as e:
+        print(f"❌ Erreur lors de l'extraction : {e}")
+
+    return resultats
+
+# Fonction de génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
-               inclinaison, orientation, code_chantier, direction, date_rapport):
+               inclinaison, orientation, code_chantier, direction, date_rapport, prod_annuelle):
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
@@ -92,6 +138,11 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Paragraph(f"<b>Orientation :</b> {orientation}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
     elements.append(Spacer(1, 6))
+
+    # Ajouter la production annuelle au rapport
+    elements.append(Paragraph("<b>Probabilité de production annuelle :</b>", styles["Heading2"]))
+    for key, value in prod_annuelle.items():
+        elements.append(Paragraph(f"{key}: {value}", styles["Normal"]))
 
     def add_table(title, df, color):
         elements.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
@@ -114,7 +165,7 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
     doc.build(elements)
 
-# ---------- INTERFACE STREAMLIT ----------
+# Interface Streamlit
 st.set_page_config(page_title="Rapport Productible", layout="wide")
 st.title("📊 Rapport Productible MET / PVGIS")
 
@@ -128,9 +179,8 @@ with st.sidebar:
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
     direction = st.radio("Direction", ["Est","Ouest"])
-        
+
     st.markdown("---")
-        
     st.header("📂 Données sources")
     unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
     met_file = st.file_uploader("Fichier MET", type="pdf")
@@ -140,28 +190,29 @@ with st.sidebar:
 
     logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
 
-
     code_chantier = st.text_input("Code chantier")
 
 if met_file and pvgis_file:
+    # Extraction des données de production
     E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid", unite_choisie)
     E_Grid_PVGIS = extract_data(pvgis_file, page_tableau, "E_Grid", unite_choisie)
 
-    Irrad_MET = extract_data(met_file, page_tableau, "Irradiation")
-    Irrad_PVGIS = extract_data(pvgis_file, page_tableau, "Irradiation")
+    # Extraction de la production annuelle du fichier TRS
+    prod_annuelle = {}
+    if TRS_file:
+        prod_annuelle = extraire_production_annuelle_auto(TRS_file)
 
+    # Calculs supplémentaires pour P90 et P50
     taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
     P90_MET_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_MET]
     P90_PVGIS_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_PVGIS]
     P90_MOYEN_mensuel = [round((m + p) / 2, 2) if m and p else None for m, p in zip(P90_MET_mensuel, P90_PVGIS_mensuel)]
-    Irrad_MOYEN_mensuel = [round((m + p) / 2, 2) if m and p else None for m, p in zip(Irrad_MET, Irrad_PVGIS)]
 
+    # Création du DataFrame
     df_data = pd.DataFrame({
         "Mois": mois,
         "E_Grid_MET (kWh)": E_Grid_MET,
         "E_Grid_PVGIS (kWh)": E_Grid_PVGIS,
-        "Irradiation_MET (kWh/m²)": Irrad_MET,
-        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
         "P90_MET (kWh)": P90_MET_mensuel,
         "P90_PVGIS (kWh)": P90_PVGIS_mensuel
     })
@@ -173,25 +224,11 @@ if met_file and pvgis_file:
         "P90_MOYEN (kWh)": P90_MOYEN_mensuel
     })
 
-    df_irrad = pd.DataFrame({
-        "Mois": mois,
-        "Irradiation_MET (kWh/m²)": Irrad_MET,
-        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
-        "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
-    })
-
-    df_prob = pd.DataFrame({
-        "Source": ["MET", "PVGIS", "Moyenne"],
-        "P50 (kWh)": [p50_met * 1000, p50_pvgis * 1000, round((p50_met + p50_pvgis) / 2 * 1000, 2)],
-        "P90 (kWh)": [p90_met * 1000, p90_pvgis * 1000, round((p90_met + p90_pvgis) / 2 * 1000, 2)]
-    })
-
     st.success("✅ Données extraites avec succès")
     st.dataframe(df_data)
 
     if st.button("📄 Générer le rapport PDF"):
         try:
-            # 1. Génération du rapport principal dans un buffer
             main_pdf_buf = BytesIO()
             logo_bytes = BytesIO(logo_file.read()) if logo_file else None
 
@@ -199,41 +236,20 @@ if met_file and pvgis_file:
                 main_pdf_buf,
                 logo_bytes,
                 df_data,
-                df_prob,
                 df_p90,
-                df_irrad,
                 inclinaison,
                 orientation,
                 code_chantier,
                 direction,
-                datetime.now().strftime("%d/%m/%Y")
+                datetime.now().strftime("%d/%m/%Y"),
+                prod_annuelle
             )
             main_pdf_buf.seek(0)
 
-            # 2. Création du fichier final fusionné
-            merger = PyPDF2.PdfMerger()
-            merger.append(main_pdf_buf)
-
-            if TRS_file:
-                merger.append(TRS_file)
-            else:
-                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans annexe TRS.")
-
-            if CABLAGE_file:
-                merger.append(CABLAGE_file)
-            else:
-                st.warning("⚠️ Fichier câblage non fourni – rapport généré sans annexe câblage.")
-
-            final_pdf_buf = BytesIO()
-            merger.write(final_pdf_buf)
-            merger.close()
-            final_pdf_buf.seek(0)
-
-            # 3. Téléchargement du fichier final
             st.success("✅ Rapport généré avec succès.")
             st.download_button(
                 "⬇️ Télécharger le PDF complet",
-                data=final_pdf_buf.getvalue(),
+                data=main_pdf_buf.getvalue(),
                 file_name=f"Productible_{code_chantier}.pdf",
                 mime="application/pdf"
             )
