@@ -121,7 +121,6 @@ st.title("📊 Rapport Productible MET / PVGIS")
 
 with st.sidebar:
     st.header("🧮 Paramètres d'entrée")
-    page_tableau = st.number_input("Page contenant les bilans prod/irrad (commence à 1)", min_value=1, step=1, value=6) - 1
     p50_met = st.number_input("P50 MET (MWh)", step=1.0)
     p90_met = st.number_input("P90 MET (MWh)", step=1.0)
     p50_pvgis = st.number_input("P50 PVGIS (MWh)", step=1.0)
@@ -132,6 +131,7 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("📂 Données sources")
+    page_tableau = st.number_input("Page contenant les bilans prod/irrad (commence à 1)", min_value=1, step=1, value=6) - 1
     unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
     met_file = st.file_uploader("Fichier MET", type="pdf")
     pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
