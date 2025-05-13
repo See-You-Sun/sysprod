@@ -126,8 +126,11 @@ with st.sidebar:
     p90_met = st.number_input("P90 MET (MWh)", step=1.0)
     p50_pvgis = st.number_input("P50 PVGIS (MWh)", step=1.0)
     p90_pvgis = st.number_input("P90 PVGIS (MWh)", step=1.0)
+    st.markdown("---")
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
+    st.markdown("---")
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
+    st.markdown("---")
     direction = st.radio("Direction", ["Est","Ouest"])
         
     st.markdown("---")
