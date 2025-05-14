@@ -143,7 +143,7 @@ with st.sidebar:
 
 
     code_chantier = st.text_input("Code chantier")
-    chargé_etude = st.text_input("Chargé(e) d'étude")
+    charge_etude = st.text_input("Chargé(e) d'étude")
 
 
 if met_file and pvgis_file:
