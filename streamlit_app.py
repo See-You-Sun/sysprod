@@ -77,7 +77,7 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
 
 # Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
-               inclinaison, orientation, code_chantier, direction, date_rapport):
+               inclinaison, orientation, code_chantier, charge_etude, direction, date_rapport):
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
@@ -88,7 +88,8 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Paragraph("<b>Rapport Productible MET / PVGIS</b>", styles["Title"]))
     elements.append(Spacer(1, 5))
     elements.append(Paragraph(f"<b>Date de génération :</b> {date_rapport}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Chargé(e) d'étude :</b> {charge_etude}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))   
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Orientation :</b> {orientation}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
