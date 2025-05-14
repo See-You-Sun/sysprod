@@ -142,6 +142,8 @@ with st.sidebar:
 
 
     code_chantier = st.text_input("Code chantier")
+    chargé_etude = st.text_input("Chargé(e) d'étude")
+
 
 if met_file and pvgis_file:
     E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid", unite_choisie)
@@ -205,6 +207,7 @@ if met_file and pvgis_file:
                 inclinaison,
                 orientation,
                 code_chantier,
+                charge_etude,
                 direction,
                 datetime.now().strftime("%d/%m/%Y")
             )
