@@ -39,10 +39,14 @@ mois_dict = {
 # Extraction de données PDF
 def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     reader = PyPDF2.PdfReader(pdf_file)
-    text = reader.pages[page_num].extract_text()
-    full_text = "\n".join([page.extract_text() for page in reader.pages[:3]])
-    lines = text.split("\n")
+    pages = reader.pages
 
+    # Extraction texte de la page ciblée et des premières pages pour la source
+    text_page = pages[page_num].extract_text()
+    full_text = "\n".join(p.extract_text() for p in pages[:3])
+    lines = text_page.splitlines()
+
+    # Détection de la source (MET ou PVGIS)
     if "PVsyst" in full_text and "Meteonorm" in full_text:
         source_type = "MET"
     elif "PVGIS" in full_text:
@@ -50,30 +54,37 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     else:
         source_type = "UNKNOWN"
 
+    # Initialisation du dictionnaire avec les mois
     data_dict = {m: None for m in mois}
+
     for line in lines:
         words = line.strip().split()
         if not words:
             continue
+
         mois_key = strip_accents(words[0])
-        if mois_key in mois_dict:
-            mois_fr = mois_dict[mois_key]
+        mois_fr = mois_dict.get(mois_key)
+
+        if mois_fr:
             try:
-                parts = re.findall(r"[-+]?\d*\.?\d+", line.replace(",", "."))
-                if colonne == "E_Grid":
-                    value = float(parts[-2])
+                # Extraction des nombres
+                numbers = [float(n.replace(",", ".")) for n in re.findall(r"[-+]?\d*\.?\d+", line)]
+
+                if colonne == "E_Grid" and len(numbers) >= 2:
+                    value = numbers[-2]  # Avant-dernière valeur
                     if unite == "MWh":
-                        value *= 1000  # Convertir en kWh
-                elif colonne == "Irradiation":
-                    value = float(parts[0])
+                        value *= 1000
+                elif colonne == "Irradiation" and numbers:
+                    value = numbers[0]
                 else:
                     value = None
-                data_dict[mois_fr] = round(value, 2)
+
+                data_dict[mois_fr] = round(value, 2) if value is not None else None
+
             except Exception:
-                pass
+                continue
 
     return [data_dict[m] for m in mois]
-
 
 # Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
