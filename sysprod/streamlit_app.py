@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pypdf  # Remplace PyPDF2
+from pypdf import PdfReader, PdfWriter
 import re
 import unicodedata
 from datetime import datetime
@@ -11,12 +11,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
-# Liste des mois
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
-
-def strip_accents(text):
-    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
 mois_dict = {
     "january": "Janvier", "janvier": "Janvier",
@@ -33,19 +29,15 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
-def extract_data(pdf_file, page_num, colonne, unite="kWh"):
-    reader = pypdf.PdfReader(pdf_file)
-    pages = reader.pages
+def strip_accents(text):
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
+def extract_data(pdf_file, page_num, colonne, unite="kWh"):
+    reader = PdfReader(pdf_file)
+    pages = reader.pages
     text_page = pages[page_num].extract_text()
     full_text = "\n".join(p.extract_text() for p in pages[:3])
     lines = text_page.splitlines()
-
-    source_type = "UNKNOWN"
-    if "PVsyst" in full_text and "Meteonorm" in full_text:
-        source_type = "MET"
-    elif "PVGIS" in full_text:
-        source_type = "PVGIS"
 
     data_dict = {m: None for m in mois}
 
@@ -60,6 +52,7 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
         if mois_fr:
             try:
                 numbers = [float(n.replace(",", ".")) for n in re.findall(r"[-+]?\d*\.?\d+", line)]
+
                 if colonne == "E_Grid" and len(numbers) >= 2:
                     value = numbers[-2]
                     if unite == "MWh":
@@ -76,8 +69,6 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
 
     return [data_dict[m] for m in mois]
 
-
-# Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, charge_etude, direction, date_rapport):
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter))
@@ -91,7 +82,7 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Spacer(1, 5))
     elements.append(Paragraph(f"<b>Date de l'étude :</b> {date_rapport}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Chargé(e) d'étude :</b> {charge_etude}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))   
+    elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Orientation :</b> {orientation}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
@@ -116,9 +107,10 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
     elements.append(Spacer(1, 6))
     add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
+
     doc.build(elements)
 
-# ---------- INTERFACE STREAMLIT ----------
+# Interface Streamlit
 st.set_page_config(page_title="Rapport Productible", layout="wide")
 st.title("📊 Rapport Productible MET / PVGIS")
 
@@ -130,28 +122,23 @@ with st.sidebar:
     p90_pvgis = st.number_input("P90 PVGIS (MWh)", step=1.0)
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
-    direction = st.radio("Direction", ["Est","Ouest"])
-        
+    direction = st.radio("Direction", ["Est", "Ouest"])
+
     st.markdown("---")
     st.header("📂 Données sources")
     page_tableau = st.number_input("Page contenant les bilans prod/irrad (commence à 1)", min_value=1, step=1, value=6) - 1
     unite_choisie = st.radio("Unité des valeurs dans le fichier source", ["kWh", "MWh"], index=0)
     met_file = st.file_uploader("Fichier MET", type="pdf")
     pvgis_file = st.file_uploader("Fichier PVGIS", type="pdf")
-    TRS_file = st.file_uploader("Fichier TRS", type="pdf")
-    CABLAGE_file = st.file_uploader("Fichier câblage", type="pdf")
-
+    trs_file = st.file_uploader("Fichier TRS", type="pdf")
+    cablage_file = st.file_uploader("Fichier câblage", type="pdf")
     logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
-
-
     code_chantier = st.text_input("Code chantier")
     charge_etude = st.text_input("Chargé(e) d'étude")
-
 
 if met_file and pvgis_file:
     E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid", unite_choisie)
     E_Grid_PVGIS = extract_data(pvgis_file, page_tableau, "E_Grid", unite_choisie)
-
     Irrad_MET = extract_data(met_file, page_tableau, "Irradiation")
     Irrad_PVGIS = extract_data(pvgis_file, page_tableau, "Irradiation")
 
@@ -196,7 +183,6 @@ if met_file and pvgis_file:
 
     if st.button("📄 Générer le rapport PDF"):
         try:
-            # 1. Génération du rapport principal dans un buffer
             main_pdf_buf = BytesIO()
             logo_bytes = BytesIO(logo_file.read()) if logo_file else None
 
@@ -216,29 +202,24 @@ if met_file and pvgis_file:
             )
             main_pdf_buf.seek(0)
 
-            # 2. Création du fichier final fusionné
-            merger = pypdf.PdfMerger()
-            merger.append(main_pdf_buf)
-            if TRS_file:
-                merger.append(TRS_file)
-            else:
-                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans le TRS.")
+            writer = PdfWriter()
+            for page in PdfReader(main_pdf_buf).pages:
+                writer.add_page(page)
+            if trs_file:
+                for page in PdfReader(trs_file).pages:
+                    writer.add_page(page)
+            if cablage_file:
+                for page in PdfReader(cablage_file).pages:
+                    writer.add_page(page)
 
-            if CABLAGE_file:
-                merger.append(CABLAGE_file)
-            else:
-                st.warning("⚠️ Fichier câblage non fourni – rapport généré sans annexe câblage.")
+            final_buf = BytesIO()
+            writer.write(final_buf)
+            final_buf.seek(0)
 
-            final_pdf_buf = BytesIO()
-            merger.write(final_pdf_buf)
-            merger.close()
-            final_pdf_buf.seek(0)
-
-            # 3. Téléchargement du fichier final
             st.success("✅ Rapport généré avec succès.")
             st.download_button(
                 "⬇️ Télécharger le PDF complet",
-                data=final_pdf_buf.getvalue(),
+                data=final_buf.getvalue(),
                 file_name=f"Productible_{code_chantier}.pdf",
                 mime="application/pdf"
             )
