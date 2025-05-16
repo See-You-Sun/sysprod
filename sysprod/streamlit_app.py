@@ -73,7 +73,8 @@ def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p9
     return P90_MET_mensuel, P90_PVGIS_mensuel
 
 def calcul_moyenne_mensuelle(list1, list2):
-    return [round((m + p) / 2, 2) if m and p else None for m, p in zip(list1, list2)]
+    return [round((met_val + pvgis_val) / 2, 2) if m and p else None for met_val, pvgis_val in zip(list1, list2)
+]
 
 # =================== TABLEAUX ===================
 def construire_tableaux(E_Grid_MET, E_Grid_PVGIS, Irrad_MET, Irrad_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
