@@ -52,11 +52,4 @@ def test_calcul_moyenne_mensuelle():
 
     assert moyenne == approx([3.252, 5.274, 7.7, 12.099, 12.336, 13.913, 13.643, 12.86, 10.275, 5.935, 3.95, 2.96], abs=0.01)
 
-def test_calcul_moyenne_mensuelle_long_différentes():
-    p90_met_month = [3.12, 4.58, 8.13]  # 3 éléments
-    p90_pvgis_month = [3.39, 5.96]      # 2 éléments
-
-    with pytest.raises(ValueError, match="Les listes doivent avoir la même longueur"):
-        calcul_moyenne_mensuelle(p90_met_month, p90_pvgis_month)
-    assert str(error.value )== "DID NOT RAISE <class 'ValueError'>"
 

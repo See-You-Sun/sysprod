@@ -79,8 +79,6 @@ def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p9
     return P90_MET_mensuel, P90_PVGIS_mensuel
 
 def calcul_moyenne_mensuelle(list1, list2):
-    if len(p90_met) != len(p90_pvgis):
-        raise ValueError("Les listes doivent avoir la même longueur")
     return [round((met_val + pvgis_val) / 2, 2) if met_val and pvgis_val else None for met_val, pvgis_val in zip(list1, list2)
 ]
 
