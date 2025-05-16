@@ -13,4 +13,4 @@ def test_strip_accents_with_invalid_value():
     with raises(TypeError) as error:
         strip_accents(None)
     assert str(error.value )== "normalize() argument 2 must be str, not None"
-    
+
