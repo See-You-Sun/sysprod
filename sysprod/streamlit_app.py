@@ -87,7 +87,7 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Spacer(1, 5))
     elements.append(Paragraph("<b>Rapport Productible MET / PVGIS</b>", styles["Title"]))
     elements.append(Spacer(1, 5))
-    elements.append(Paragraph(f"<b>Date de génération :</b> {date_rapport}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Date de l'étude :</b> {date_rapport}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Chargé(e) d'étude :</b> {charge_etude}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))   
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
