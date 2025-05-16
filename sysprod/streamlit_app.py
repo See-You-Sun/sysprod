@@ -1,7 +1,6 @@
-
 import streamlit as st
 import pandas as pd
-import PyPDF2
+import pypdf  # Remplace PyPDF2
 import re
 import unicodedata
 from datetime import datetime
@@ -16,11 +15,9 @@ from reportlab.lib.units import inch
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
-# Fonction pour normaliser sans accents
 def strip_accents(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
-# Mois anglais/français vers mois français
 mois_dict = {
     "january": "Janvier", "janvier": "Janvier",
     "february": "Février", "fevrier": "Février",
@@ -36,25 +33,20 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
-# Extraction de données PDF
 def extract_data(pdf_file, page_num, colonne, unite="kWh"):
-    reader = PyPDF2.PdfReader(pdf_file)
+    reader = pypdf.PdfReader(pdf_file)
     pages = reader.pages
 
-    # Extraction texte de la page ciblée et des premières pages pour la source
     text_page = pages[page_num].extract_text()
     full_text = "\n".join(p.extract_text() for p in pages[:3])
     lines = text_page.splitlines()
 
-    # Détection de la source (MET ou PVGIS)
+    source_type = "UNKNOWN"
     if "PVsyst" in full_text and "Meteonorm" in full_text:
         source_type = "MET"
     elif "PVGIS" in full_text:
         source_type = "PVGIS"
-    else:
-        source_type = "UNKNOWN"
 
-    # Initialisation du dictionnaire avec les mois
     data_dict = {m: None for m in mois}
 
     for line in lines:
@@ -67,11 +59,9 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
 
         if mois_fr:
             try:
-                # Extraction des nombres
                 numbers = [float(n.replace(",", ".")) for n in re.findall(r"[-+]?\d*\.?\d+", line)]
-
                 if colonne == "E_Grid" and len(numbers) >= 2:
-                    value = numbers[-2]  # Avant-dernière valeur
+                    value = numbers[-2]
                     if unite == "MWh":
                         value *= 1000
                 elif colonne == "Irradiation" and numbers:
@@ -85,6 +75,7 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
                 continue
 
     return [data_dict[m] for m in mois]
+
 
 # Génération du PDF
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
@@ -226,9 +217,8 @@ if met_file and pvgis_file:
             main_pdf_buf.seek(0)
 
             # 2. Création du fichier final fusionné
-            merger = PyPDF2.PdfMerger()
+            merger = pypdf.PdfMerger()
             merger.append(main_pdf_buf)
-
             if TRS_file:
                 merger.append(TRS_file)
             else:
