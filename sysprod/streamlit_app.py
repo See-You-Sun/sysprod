@@ -11,6 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
+# =================== CONSTS ET DICTIONNAIRES ===================
 mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
 
@@ -29,16 +30,15 @@ mois_dict = {
     "december": "Décembre", "decembre": "Décembre"
 }
 
+# =================== UTILITAIRES ===================
 def strip_accents(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn').lower()
 
+# =================== EXTRACTION PDF ===================
 def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     reader = PdfReader(pdf_file)
-    pages = reader.pages
-    text_page = pages[page_num].extract_text()
-    full_text = "\n".join(p.extract_text() for p in pages[:3])
+    text_page = reader.pages[page_num].extract_text()
     lines = text_page.splitlines()
-
     data_dict = {m: None for m in mois}
 
     for line in lines:
@@ -52,7 +52,6 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
         if mois_fr:
             try:
                 numbers = [float(n.replace(",", ".")) for n in re.findall(r"[-+]?\d*\.?\d+", line)]
-
                 if colonne == "E_Grid" and len(numbers) >= 2:
                     value = numbers[-2]
                     if unite == "MWh":
@@ -61,13 +60,72 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
                     value = numbers[0]
                 else:
                     value = None
-
                 data_dict[mois_fr] = round(value, 2) if value is not None else None
-
             except Exception:
                 continue
-
     return [data_dict[m] for m in mois]
+
+# =================== CALCULS ===================
+def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
+    taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
+    P90_MET_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_MET]
+    P90_PVGIS_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_PVGIS]
+    return P90_MET_mensuel, P90_PVGIS_mensuel
+
+def calcul_moyenne_mensuelle(list1, list2):
+    return [round((m + p) / 2, 2) if m and p else None for m, p in zip(list1, list2)]
+
+# =================== TABLEAUX ===================
+def construire_tableaux(E_Grid_MET, E_Grid_PVGIS, Irrad_MET, Irrad_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
+    P90_MET_mensuel, P90_PVGIS_mensuel = calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis)
+    P90_MOYEN_mensuel = calcul_moyenne_mensuelle(P90_MET_mensuel, P90_PVGIS_mensuel)
+    Irrad_MOYEN_mensuel = calcul_moyenne_mensuelle(Irrad_MET, Irrad_PVGIS)
+
+    df_data = pd.DataFrame({
+        "Mois": mois,
+        "E_Grid_MET (kWh)": E_Grid_MET,
+        "E_Grid_PVGIS (kWh)": E_Grid_PVGIS,
+        "Irradiation_MET (kWh/m²)": Irrad_MET,
+        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
+        "P90_MET (kWh)": P90_MET_mensuel,
+        "P90_PVGIS (kWh)": P90_PVGIS_mensuel
+    })
+
+    df_p90 = pd.DataFrame({
+        "Mois": mois,
+        "P90_MET (kWh)": P90_MET_mensuel,
+        "P90_PVGIS (kWh)": P90_PVGIS_mensuel,
+        "P90_MOYEN (kWh)": P90_MOYEN_mensuel
+    })
+
+    df_irrad = pd.DataFrame({
+        "Mois": mois,
+        "Irradiation_MET (kWh/m²)": Irrad_MET,
+        "Irradiation_PVGIS (kWh/m²)": Irrad_PVGIS,
+        "Irradiation_MOYENNE (kWh/m²)": Irrad_MOYEN_mensuel
+    })
+
+    df_prob = pd.DataFrame({
+        "Source": ["MET", "PVGIS", "Moyenne"],
+        "P50 (kWh)": [p50_met * 1000, p50_pvgis * 1000, round((p50_met + p50_pvgis) / 2 * 1000, 2)],
+        "P90 (kWh)": [p90_met * 1000, p90_pvgis * 1000, round((p90_met + p90_pvgis) / 2 * 1000, 2)]
+    })
+
+    return df_data, df_p90, df_irrad, df_prob
+
+# =================== PDF ===================
+def add_table(elements, title, df, color):
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
+    table_data = [df.columns.tolist()] + df.values.tolist()
+    table = Table(table_data)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), color),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 6))
 
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, charge_etude, direction, date_rapport):
@@ -88,29 +146,17 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
     elements.append(Spacer(1, 6))
 
-    def add_table(title, df, color):
-        elements.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
-        table_data = [df.columns.tolist()] + df.values.tolist()
-        table = Table(table_data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), color),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ]))
-        elements.append(table)
-        elements.append(Spacer(1, 6))
-
-    add_table("Données extraites :", df_data, colors.grey)
+    add_table(elements, "Données extraites :", df_data, colors.grey)
     elements.append(PageBreak())
-    add_table("Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
+    add_table(elements, "Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
     elements.append(PageBreak())
-    add_table("Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
+    add_table(elements, "Irradiation moyenne mensuelle :", df_irrad_moyenne, colors.lightgreen)
     elements.append(Spacer(1, 6))
-    add_table("Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
+    add_table(elements, "Probabilité de production annuelle (en kWh) :", df_probability, colors.lightgrey)
 
     doc.build(elements)
 
-# Interface Streamlit
+# =================== INTERFACE STREAMLIT ===================
 st.set_page_config(page_title="Rapport Productible", layout="wide")
 st.title("📊 Rapport Productible MET / PVGIS")
 
