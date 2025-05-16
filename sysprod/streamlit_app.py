@@ -208,9 +208,15 @@ if met_file and pvgis_file:
             if trs_file:
                 for page in PdfReader(trs_file).pages:
                     writer.add_page(page)
+            else:
+                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans annexe TRS.")
+
             if cablage_file:
                 for page in PdfReader(cablage_file).pages:
                     writer.add_page(page)
+            else:
+                st.warning("⚠️ Fichier câblage non fourni – rapport généré sans annexe câblage.")
+
 
             final_buf = BytesIO()
             writer.write(final_buf)
