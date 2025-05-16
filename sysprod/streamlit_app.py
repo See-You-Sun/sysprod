@@ -221,7 +221,7 @@ if met_file and pvgis_file:
             if TRS_file:
                 merger.append(TRS_file)
             else:
-                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans annexe TRS.")
+                st.warning("⚠️ Fichier TRS non fourni – rapport généré sans le TRS.")
 
             if CABLAGE_file:
                 merger.append(CABLAGE_file)
