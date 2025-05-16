@@ -66,9 +66,12 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     return [data_dict[met_val] for met_val in mois]
 
 # =================== CALCULS ===================
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 99f839c (Separate functions)
 def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
     taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
     P90_MET_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_MET]
@@ -129,7 +132,11 @@ def add_table(elements, title, df, color):
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
     elements.append(table)
+<<<<<<< HEAD
     elements.append(Spacer(1, 4))
+=======
+    elements.append(Spacer(1, 6))
+>>>>>>> 99f839c (Separate functions)
 
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
                inclinaison, orientation, code_chantier, charge_etude, direction,commentaire_direction, date_rapport):
@@ -152,9 +159,12 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Puissance projet/ Commentaire:</b> {commentaire_direction}", styles["Normal"]))
 
+<<<<<<< HEAD
 
     elements.append(Spacer(1, 2))
 
+=======
+>>>>>>> 99f839c (Separate functions)
     add_table(elements, "Données extraites :", df_data, colors.grey)
     elements.append(PageBreak())
     add_table(elements, "Production mensuelle estimée en P90 :", df_p90_mensuel, colors.lightblue)
