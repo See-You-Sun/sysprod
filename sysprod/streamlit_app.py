@@ -178,8 +178,7 @@ with st.sidebar:
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
     direction = st.radio("Direction", ["Est", "Ouest"])
-    commentaire_direction = st.text_area("Commentaire")
-
+    
 
     st.markdown("---")
     st.header("📂 Données sources")
