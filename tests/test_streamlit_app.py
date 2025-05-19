@@ -78,7 +78,7 @@ def test_construire_tableaux_erreur():
     p90_met = 1.0
     p50_pvgis = 1.0
     p90_pvgis = 0.9
-    df_data, df_p90, df_irrad, df_prob = construire_tableaux(met, pvgis, irrad_met, irrad_pvgis, p50_met, p90_met, p50_pvgis, p90_pvgis)
+    df_data, df_p90, df_irrad, df_prob  = construire_tableaux(met, pvgis, irrad_met, irrad_pvgis, p50_met, p90_met, p50_pvgis, p90_pvgis)
     assert isinstance(df_data, pd.DataFrame)
 
     with pytest.raises(AssertionError):
@@ -129,6 +129,7 @@ def test_create_pdf():
         code_chantier="001",
         charge_etude="TC",
         direction="Sud",
+        commentaire_direction="xxx",
         date_rapport=datetime.now().strftime("%d/%m/%Y")
     )
 
