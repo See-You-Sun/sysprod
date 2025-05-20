@@ -5,9 +5,9 @@ from sysprod.streamlit_app import construire_tableaux
 from sysprod.streamlit_app import create_pdf
 from pytest import mark, raises
 import pandas as pd
-from io import BytesIO
+from io import BytesIO, TextIOWrapper
 from datetime import datetime
-
+from re import sub
 import pytest
 import warnings
 from pytest import approx
@@ -116,7 +116,6 @@ def test_create_pdf():
         "P50 (kWh)": [1100, 1000, 1050],
         "P90 (kWh)": [1000, 900, 950]
     })
-
     create_pdf(
         buf,
         logo=None,  
@@ -133,7 +132,18 @@ def test_create_pdf():
         date_rapport=datetime.now().strftime("%d/%m/%Y")
     )
 
-    content = buf.getvalue()
-    assert len(content) > 0
+    with open(r"tests\Rapport_Productible_etalon.pdf", "rb" ) as etalon :
+        expected_content =  etalon.read().decode("latin-1")   
+    buf.seek(0)
+    content =buf.read().decode("latin-1")
+    content = sub(r"CreationDate \([^\)]+\)", "", content)
+    content = sub(r"/ModDate \([^\)]+\)", "", content)
+    content = sub(r"\[<[^>]+><[^>]+>\]", "", content)
+    expected_content = sub(r"CreationDate \([^\)]+\)", "", expected_content)
+    expected_content = sub(r"/ModDate \([^\)]+\)", "", expected_content)
+    expected_content = sub(r"\[<[^>]+><[^>]+>\]", "", expected_content)
+    # utilisayion de Regex101 pour déterminer les expressions régulières
 
+    assert content== expected_content
 
+    
