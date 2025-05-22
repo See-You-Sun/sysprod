@@ -150,7 +150,7 @@ def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moye
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Orientation :</b> {orientation}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Puissance projet/ Commentaire:</b> {commentaire_direction}", styles["Heading3"]))
+    elements.append(Paragraph(f"<b>Puissance projet/ Commentaire:</b> {commentaire_direction}", styles["Normal"]))
 
 
     elements.append(Spacer(1, 2))
