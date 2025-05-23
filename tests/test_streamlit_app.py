@@ -54,7 +54,15 @@ def test_calcul_moyenne_mensuelle():
     print("Production en P90 (moyenne MET & PVGIS) :", moyenne)
 
     assert moyenne == approx([3.252, 5.274, 7.7, 12.099, 12.336, 13.913, 13.643, 12.86, 10.275, 5.935, 3.95, 2.96], abs=0.01)
+"""
+def test_calcul_P50_moyenne():
+    met = [3.311,4.867,8.628,12.046,13.667,14.609, 14.645, 12.826,10.368, 6.262, 3.994, 2.912]
+    pvgis = [3.594,6.330,7.72, 13.643, 12.526, 14.932, 14.322,14.483,11.449,6.336,4.394, 3.377]
 
+    moyenne_P50 = calcul_P50_moyenne(met, pvgis)
+
+    assert moyenne_P50 == approx([3452.5, 5598.5, 8174.0, 12844.5, 13096.5, 14770.5, 14483.5, 13654.5, 10908.5, 6299.0, 4194.0, 3144.5], abs=0.01)
+"""
 def test_construire_tableaux():
     met = [1000]*12
     pvgis = [900]*12
