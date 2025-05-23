@@ -238,7 +238,7 @@ if met_file and pvgis_file:
     st.success("✅ Données extraites avec succès")
     st.dataframe(df_data)
 
-    if st.button("📄 Générer le rapport PDF"):
+    if st.download_button("📄 Générer le rapport PDF"):
         try:
             main_pdf_buf = BytesIO()
             logo_bytes = BytesIO(logo_file.read()) if logo_file else None
