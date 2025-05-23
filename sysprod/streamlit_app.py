@@ -78,17 +78,12 @@ def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p9
 def calcul_moyenne_mensuelle(list1, list2):
     return [round((met_val + pvgis_val) / 2, 2) if met_val and pvgis_val else None for met_val, pvgis_val in zip(list1, list2)
 ]
-"""
-def calcul_P50_Moyen(list1, list2):
-    return [round((p50_met + p50_pvgis) / 2, 2) if met_val and pvgis_val else None for met_val, pvgis_val in zip(list1, list2)
-]
-"""
+
 # =================== TABLEAUX ===================
 def construire_tableaux(E_Grid_MET, E_Grid_PVGIS, Irrad_MET, Irrad_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
     P90_MET_mensuel, P90_PVGIS_mensuel = calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis)
     P90_MOYEN_mensuel = calcul_moyenne_mensuelle(P90_MET_mensuel, P90_PVGIS_mensuel)
     Irrad_MOYEN_mensuel = calcul_moyenne_mensuelle(Irrad_MET, Irrad_PVGIS)
-    "P50_Moyen= calcul_P50_Moyen(p50_met, p50_pvgis)"
 
     df_data = pd.DataFrame({
         "Mois": mois,
