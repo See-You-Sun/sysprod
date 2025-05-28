@@ -39,7 +39,7 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
     reader = PdfReader(pdf_file)
     text_page = reader.pages[page_num].extract_text()
     lines = text_page.splitlines()
-    data_dict = {m: None for m in mois}
+    data_dict = {met_val: None for met_val in mois}
 
     for line in lines:
         words = line.strip().split()
@@ -63,9 +63,12 @@ def extract_data(pdf_file, page_num, colonne, unite="kWh"):
                 data_dict[mois_fr] = round(value, 2) if value is not None else None
             except Exception:
                 continue
-    return [data_dict[m] for m in mois]
+    return [data_dict[met_val] for met_val in mois]
 
 # =================== CALCULS ===================
+
+
+
 def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p90_pvgis):
     taux_diff = round(((p90_met + p90_pvgis) / 2 - (p50_met + p50_pvgis) / 2) / ((p50_met + p50_pvgis) / 2), 4)
     P90_MET_mensuel = [round(v * (1 + taux_diff), 2) if v else None for v in E_Grid_MET]
@@ -73,7 +76,7 @@ def calcul_p90_mensuel(E_Grid_MET, E_Grid_PVGIS, p50_met, p90_met, p50_pvgis, p9
     return P90_MET_mensuel, P90_PVGIS_mensuel
 
 def calcul_moyenne_mensuelle(list1, list2):
-    return [round((met_val + pvgis_val) / 2, 2) if m and p else None for met_val, pvgis_val in zip(list1, list2)
+    return [round((met_val + pvgis_val) / 2, 2) if met_val and pvgis_val else None for met_val, pvgis_val in zip(list1, list2)
 ]
 
 # =================== TABLEAUX ===================
@@ -126,26 +129,31 @@ def add_table(elements, title, df, color):
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
     elements.append(table)
-    elements.append(Spacer(1, 6))
+    elements.append(Spacer(1, 4))
 
 def create_pdf(buf, logo, df_data, df_probability, df_p90_mensuel, df_irrad_moyenne,
-               inclinaison, orientation, code_chantier, charge_etude, direction, date_rapport):
+               inclinaison, orientation, code_chantier, charge_etude, direction,commentaire_direction, date_rapport):
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter))
     elements = []
     styles = getSampleStyleSheet()
 
     if logo:
         elements.append(Image(logo, width=1.5 * inch, height=0.7 * inch))
-    elements.append(Spacer(1, 5))
+    elements.append(Spacer(1, 2))
     elements.append(Paragraph("<b>Rapport Productible MET / PVGIS</b>", styles["Title"]))
     elements.append(Spacer(1, 5))
-    elements.append(Paragraph(f"<b>Date de l'étude :</b> {date_rapport}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Chargé(e) d'étude :</b> {charge_etude}", styles["Normal"]))
     elements.append(Paragraph(f"<b>Code chantier :</b> {code_chantier}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Chargé(e) d'étude :</b> {charge_etude}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Date de l'étude :</b> {date_rapport}", styles["Normal"]))
+
+
     elements.append(Paragraph(f"<b>Inclinaison :</b> {inclinaison}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Orientation :</b> {orientation}°", styles["Normal"]))
     elements.append(Paragraph(f"<b>Direction :</b> {direction}", styles["Normal"]))
-    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"<b>Puissance projet/ Commentaire:</b> {commentaire_direction}", styles["Normal"]))
+
+
+    elements.append(Spacer(1, 2))
 
     add_table(elements, "Données extraites :", df_data, colors.grey)
     elements.append(PageBreak())
@@ -170,6 +178,7 @@ with st.sidebar:
     inclinaison = st.slider("Inclinaison (°)", 0, 90, 20)
     orientation = st.slider("Orientation (0° = Nord)", 0, 360, 180)
     direction = st.radio("Direction", ["Est", "Ouest"])
+    
 
     st.markdown("---")
     st.header("📂 Données sources")
@@ -182,6 +191,8 @@ with st.sidebar:
     logo_file = st.file_uploader("Logo (jpg/png)", type=["jpg", "jpeg", "png"])
     code_chantier = st.text_input("Code chantier")
     charge_etude = st.text_input("Chargé(e) d'étude")
+    commentaire_direction = st.text_area("Puissance projet/ Commentaire:: ")
+
 
 if met_file and pvgis_file:
     E_Grid_MET = extract_data(met_file, page_tableau, "E_Grid", unite_choisie)
@@ -245,6 +256,7 @@ if met_file and pvgis_file:
                 code_chantier,
                 charge_etude,
                 direction,
+                commentaire_direction,
                 datetime.now().strftime("%d/%m/%Y")
             )
             main_pdf_buf.seek(0)
